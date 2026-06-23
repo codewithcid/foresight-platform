@@ -72,8 +72,14 @@ def notify_approval(run_label: str, segment: str, intervention: str, channel: st
         {"type": "section", "text": {"type": "mrkdwn", "text":
             f"*{run_label}*\nSegment: *{segment}*  ·  Action: *{intervention}*  ·  Channel: *{channel}*\n"
             f"Reach: *{reach:,}*  ·  Predicted incremental revenue: *₹{predicted_rev:,.0f}*  ·  Run *#{run_id}*"}},
+        {"type": "actions", "block_id": f"wf_{run_id}", "elements": [
+            {"type": "button", "style": "primary", "action_id": "wf_approve",
+             "text": {"type": "plain_text", "text": "Approve & send"}, "value": str(run_id)},
+            {"type": "button", "style": "danger", "action_id": "wf_reject",
+             "text": {"type": "plain_text", "text": "Reject"}, "value": str(run_id)},
+        ]},
         {"type": "context", "elements": [{"type": "mrkdwn", "text":
-            "Approve or reject in the Foresight Workflow Studio."}]},
+            "Approve here, or in the Foresight Workflow Studio."}]},
     ]
     ok, _ts, err = _post(blocks=blocks, text=f"Approval needed for run #{run_id}")
     return ok, err

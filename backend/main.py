@@ -561,6 +561,41 @@ async def webhook_slack(request: Request):
     return {"ok": True}
 
 
+@app.post("/api/slack/interact")
+async def slack_interact(request: Request):
+    """Slack interactive components: the Approve/Reject buttons on the approval card."""
+    import json as _json
+    form = await request.form()
+    try:
+        payload = _json.loads(form.get("payload", "{}"))
+    except Exception:
+        return Response(status_code=200)
+    action = (payload.get("actions") or [{}])[0]
+    action_id = action.get("action_id", "")
+    run_id = int(action.get("value", 0) or 0)
+    response_url = payload.get("response_url", "")
+
+    if action_id == "wf_approve":
+        run = await STATE["workflow"].approve(run_id, broadcast)
+        s = run.get("summary") or {}
+        msg = (f"✅ *Approved* — run #{run_id} sent & proven: predicted "
+               f"{(s.get('avg_rel_lift') or 0)*100:.1f}% vs actual {(s.get('actual_rel_lift') or 0)*100:.1f}% lift.")
+    elif action_id == "wf_reject":
+        await STATE["workflow"].reject(run_id, broadcast)
+        msg = f"🛑 *Rejected* — run #{run_id} was not sent."
+    else:
+        msg = "Unknown action."
+
+    # Replace the original card so the buttons can't be clicked twice.
+    if response_url:
+        try:
+            import requests as _rq
+            _rq.post(response_url, json={"text": msg, "replace_original": True}, timeout=8)
+        except Exception:
+            pass
+    return Response(status_code=200)
+
+
 # ------------------------------------------------------------------ workflows
 class WorkflowRunRequest(BaseModel):
     workflow: str | None = None
