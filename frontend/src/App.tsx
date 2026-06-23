@@ -11,6 +11,7 @@ import Channels from "./components/Channels";
 import Workflows from "./components/Workflows";
 import Proof from "./components/Proof";
 import Copilot from "./components/Copilot";
+import Tour from "./components/Tour";
 import { Handoff, NavContext } from "./nav";
 import { AnimatePresence, motion } from "framer-motion";
 import { pageTransition } from "./ui/motion";
@@ -45,6 +46,7 @@ export default function App({ onHome }: { onHome?: () => void }) {
   const [personaId, setPersonaId] = useState<string>("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [handoff, setHandoff] = useState<Handoff>(null);
+  const [tourStep, setTourStep] = useState<number | null>(null);
 
   const go = (t: Tab, h: Handoff = null) => { setHandoff(h); setTab(t); };
 
@@ -60,7 +62,7 @@ export default function App({ onHome }: { onHome?: () => void }) {
   const personaLabel = persona ? `${persona.first_name} (${persona.segment_label})` : "…";
 
   return (
-    <NavContext.Provider value={{ go, handoff, clearHandoff: () => setHandoff(null) }}>
+    <NavContext.Provider value={{ go, handoff, clearHandoff: () => setHandoff(null), startTour: () => setTourStep(0) }}>
     <div className="flex h-[100dvh] overflow-hidden">
       <Sidebar tab={tab} setTab={(t) => go(t)} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onHome={onHome} />
 
@@ -100,6 +102,7 @@ export default function App({ onHome }: { onHome?: () => void }) {
       </div>
 
       <Copilot />
+      <Tour step={tourStep} setStep={setTourStep} />
     </div>
     </NavContext.Provider>
   );
