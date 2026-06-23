@@ -151,13 +151,13 @@
   <!-- 3 · PROTOTYPE DEMO — DEMO MAP (part of 1:30) -->
   <section class="slide">
     <div class="reveal kicker"><span class="dot"></span> Live Prototype · what you'll see</div>
-    <h2 class="reveal" style="margin-top:14px">One causal engine. <span class="grad">Six working surfaces.</span></h2>
+    <h2 class="reveal" style="margin-top:14px">One causal engine. <span class="grad">The whole ROI loop.</span></h2>
     <div class="cards reveal" style="margin-top:22px;gap:11px">
-      <div class="demo-row"><span class="n">1</span><div class="t">Foresight Dashboard <span>— autonomous decisions live, predicted-vs-actual proof, the Time Machine</span></div><span class="dim">working model</span></div>
-      <div class="demo-row"><span class="n">2</span><div class="t">Spend Planner <span>— budget → causal-optimal allocation, +86% vs. naive, incrementality proof</span></div><span class="dim">technical depth</span></div>
-      <div class="demo-row"><span class="n">3</span><div class="t">Bring Your Own Data <span>— upload a real CSV, train an uplift model, validate on a holdout</span></div><span class="dim">scalability</span></div>
-      <div class="demo-row"><span class="n">4</span><div class="t">Creative Pre-Flight <span>— generate → pre-test on a synthetic panel → ship the winner → prove it</span></div><span class="dim">AI integration</span></div>
-      <div class="demo-row"><span class="n">5</span><div class="t">Mēla Shop + WhatsApp <span>— the agent acts and remembers across channels, unprompted</span></div><span class="dim">communication</span></div>
+      <div class="demo-row"><span class="n">1</span><div class="t">Audience &amp; Uplift <span>— a causal S-learner scores each customer's incremental ROI; upload your own CSV, proven on a holdout</span></div><span class="dim">predict</span></div>
+      <div class="demo-row"><span class="n">2</span><div class="t">Spend Planner <span>— budget → causal-optimal allocation, +86% vs. naive, incrementality proof</span></div><span class="dim">optimize</span></div>
+      <div class="demo-row"><span class="n">3</span><div class="t">Workflow Studio <span>— predict → guardrail → generate → pre-test → human approval → deliver → prove</span></div><span class="dim">activate</span></div>
+      <div class="demo-row"><span class="n">4</span><div class="t">Real channels <span>— SMS, WhatsApp, Slack, Email, Telegram (real sends, not skins) + two-way replies</span></div><span class="dim">cross-channel</span></div>
+      <div class="demo-row"><span class="n">5</span><div class="t">Proof <span>— predicted-vs-actual ROI on every run, plus real measured clicks &amp; opens</span></div><span class="dim">prove</span></div>
     </div>
     <div class="footer"><span class="seclabel">Prototype Demonstration</span><span class="pill">1:30</span></div>
   </section>
@@ -169,8 +169,8 @@
     <div class="cards c2 reveal" style="margin-top:22px">
       <div class="card"><h3><span class="ic g">∿</span> Causal core <span class="chip">the proof spine</span></h3><p>LightGBM <b>S-learner</b> estimates each customer's treatment effect (CATE). Every prediction is checked against the actual outcome — live calibration, not a one-off score.</p></div>
       <div class="card"><h3><span class="ic v">◇</span> Agentic loop</h3><p><b>Strategist → Guardrail → Execution → Critic</b>, with a Thompson-sampling contextual bandit and a self-correcting policy that learns per segment.</p></div>
-      <div class="card"><h3><span class="ic a">✦</span> AI integration</h3><p>NVIDIA NIM model pool (Qwen3-80B · Llama-3.3-70B · GPT-OSS / Nemotron-120B) with Groq fallback; keyless image generation; a tool-calling Supervisor exposed over <b>MCP</b>.</p></div>
-      <div class="card"><h3><span class="ic g">⤢</span> Stack &amp; scale</h3><p>FastAPI + React/Vite/TS over websockets. Plans project to a 5-lakh addressable base — and the <b>same engine runs on any uploaded dataset</b>.</p></div>
+      <div class="card"><h3><span class="ic a">✦</span> Real cross-channel</h3><p>One agent + shared memory over <b>real</b> SMS, WhatsApp, Slack, Email &amp; Telegram — with human-in-the-loop approval and tracked-link click/open attribution feeding the proof.</p></div>
+      <div class="card"><h3><span class="ic g">⤢</span> Stack &amp; scale</h3><p>FastAPI + React/Vite/TS over websockets, SQLite proof ledger, NVIDIA NIM + Groq, tools exposed over <b>MCP</b> — the <b>same engine runs on any uploaded dataset</b>.</p></div>
     </div>
     <div class="footer"><span class="seclabel">Prototype Demonstration</span><span class="pill">1:30</span></div>
   </section>
