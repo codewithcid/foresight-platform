@@ -16,9 +16,10 @@ type NavApi = {
   go: (tab: Tab, handoff?: Handoff) => void;
   handoff: Handoff;
   clearHandoff: () => void;
+  startTour: () => void;
 };
 
-export const NavContext = createContext<NavApi>({ go: () => {}, handoff: null, clearHandoff: () => {} });
+export const NavContext = createContext<NavApi>({ go: () => {}, handoff: null, clearHandoff: () => {}, startTour: () => {} });
 export const useNav = () => useContext(NavContext);
 
 /** Map an intervention's channel label to a real delivery channel. */

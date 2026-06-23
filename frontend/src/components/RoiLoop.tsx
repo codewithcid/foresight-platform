@@ -33,14 +33,19 @@ const STAGES: Stage[] = [
 ];
 
 export default function RoiLoop() {
-  const { go } = useNav();
+  const { go, startTour } = useNav();
   return (
     <div className="rounded-xl ring-1 ring-foreground/10 bg-card p-4 mb-5">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between gap-3 mb-3">
         <h2 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
           <span className="h-1.5 w-1.5 rounded-full bg-primary" /> The ROI loop — how every surface connects
         </h2>
-        <span className="text-[10px] text-muted-foreground/70 hidden sm:block">predict → act → prove → learn → repeat</span>
+        <button
+          onClick={startTour}
+          className="shrink-0 inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:opacity-90 transition"
+        >
+          <i className="ri-play-circle-line" /> Guided tour
+        </button>
       </div>
       <div className="flex items-stretch gap-1 overflow-x-auto pb-1">
         {STAGES.map((s, i) => (
