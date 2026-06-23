@@ -91,13 +91,15 @@ class ExecutionAgent:
         self.memory = memory
 
     def draft(self, customer_row: pd.Series, action: ActionPrediction,
-               occasion_theme: str | None = None, product_name: str | None = None) -> tuple[str, str]:
+               occasion_theme: str | None = None, product_name: str | None = None,
+               use_llm: bool = True) -> tuple[str, str]:
         label = C.INTERVENTIONS[action.intervention]["label"]
         channel = C.INTERVENTIONS[action.intervention]["channel"]
         segment_label = C.SEGMENTS[customer_row.segment]["label"]
         text, source = llm.draft_intervention_message(
             action.intervention, label, channel, segment_label, customer_row.first_name,
             action.predicted_rel_lift, occasion_theme=occasion_theme, product_name=product_name,
+            use_llm=use_llm,
         )
         return text, source
 
@@ -149,7 +151,7 @@ class AgentLoop:
 
     async def handle_event(self, customer_id: str, event: str, broadcast,
                             product_id: str | None = None, occasion_key: str | None = None,
-                            occasion_theme: str | None = None) -> None:
+                            occasion_theme: str | None = None, draft_with_llm: bool = True) -> None:
         row = self.get_customer(customer_id)
         seg_label = C.SEGMENTS[row.segment]["label"]
         is_demo = str(customer_id).startswith("DEMO_")
@@ -193,7 +195,7 @@ class AgentLoop:
             await broadcast({"type": "decision", "entry": entry})
             return
 
-        text, source = self.execution.draft(row, action, occasion_theme=occasion_theme, product_name=product_name)
+        text, source = self.execution.draft(row, action, occasion_theme=occasion_theme, product_name=product_name, use_llm=draft_with_llm)
         safe, reason2 = self.guardrail.brand_safety(text)
         if not safe:
             entry = self.ledger.record_hold(

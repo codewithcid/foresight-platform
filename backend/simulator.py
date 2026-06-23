@@ -33,7 +33,9 @@ class LiveSimulator:
             await asyncio.sleep(min(gap, 3.0) / max(self.speed, 0.1))
             if not self.running:
                 break
-            await self.agent_loop.handle_event(row["customer_id"], row["event"], self.broadcast)
+            # Sandbox traffic uses template copy (use_llm=False) so the background
+            # feed never burns the LLM rate limit -- real workflows/agent keep the LLM.
+            await self.agent_loop.handle_event(row["customer_id"], row["event"], self.broadcast, draft_with_llm=False)
             self._cursor += 1
         self.running = False
 

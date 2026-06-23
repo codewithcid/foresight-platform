@@ -137,7 +137,11 @@ def _chat(system: str, user: str, max_tokens: int = 200, temperature: float = 0.
 # ---------------------------------------------------------------------------
 def draft_intervention_message(intervention_key: str, intervention_label: str, channel: str,
                                 segment_label: str, first_name: str, predicted_rel_lift: float,
-                                occasion_theme: str | None = None, product_name: str | None = None) -> tuple[str, str]:
+                                occasion_theme: str | None = None, product_name: str | None = None,
+                                use_llm: bool = True) -> tuple[str, str]:
+    # use_llm=False -> deterministic template copy, no API call. The background
+    # sandbox simulator uses this so it never burns the LLM rate limit; real
+    # user actions (workflows, creative, agent) keep use_llm=True.
     occasion_line = f" Tie it to the current theme: {occasion_theme}." if occasion_theme else ""
     product_line = f" Reference this specific item: {product_name}." if product_name else ""
     system = "You write short, warm, non-pushy brand messages for an Indian fashion e-commerce app. No hype words."
@@ -145,7 +149,7 @@ def draft_intervention_message(intervention_key: str, intervention_label: str, c
         f"Write a {channel} message (1-2 sentences, no markdown) to {first_name}, a '{segment_label}' shopper "
         f"who just abandoned their cart. Intervention: {intervention_label}.{product_line}{occasion_line}"
     )
-    text = _chat(system, user, max_tokens=80)
+    text = _chat(system, user, max_tokens=80) if use_llm else None
     if text:
         return text, "ai"
     fallback = {
