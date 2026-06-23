@@ -11,7 +11,6 @@ concierge, the CRM campaign drafts, and explainability.
 from __future__ import annotations
 
 import asyncio
-import dataclasses
 from contextlib import asynccontextmanager
 
 import pandas as pd
@@ -45,7 +44,7 @@ from agent import AgentLoop
 from bandit import ThompsonBandit
 from causal import UpliftEngine
 from clock import CLOCK
-from context import ShopperRegistry, TrendAnalyzer, summarize_customer
+from context import ShopperRegistry, TrendAnalyzer
 from ledger import Ledger
 from memory import MemoryStore
 from signals import SignalRegistry
@@ -177,15 +176,6 @@ def meta():
         },
         "llm_mode": "groq" if llm.has_key() else "template-fallback",
     }
-
-
-@app.get("/api/demo/personas")
-def demo_personas():
-    return {"personas": [
-        {"customer_id": p["customer_id"], "first_name": p["first_name"],
-         "segment": p["segment"], "segment_label": C.SEGMENTS[p["segment"]]["label"]}
-        for p in datagen.DEMO_PERSONAS
-    ]}
 
 
 @app.post("/api/creative/preflight")
@@ -351,40 +341,6 @@ def model_qini(intervention: str = "cart_recovery_push"):
     if intervention not in C.INTERVENTION_KEYS:
         raise HTTPException(400, f"unknown intervention {intervention!r}")
     return model_card_mod.qini_curve(STATE["engine"], intervention)
-
-
-@app.get("/api/customers")
-def customers(limit: int = 60):
-    df = STATE["customers"]
-    pool = df[df.reached_intent].head(limit)
-    return {
-        "customers": [
-            {
-                "customer_id": r.customer_id, "first_name": r.first_name,
-                "segment": r.segment, "segment_label": C.SEGMENTS[r.segment]["label"],
-                "reached_purchase": bool(r.reached_purchase),
-            }
-            for r in pool.itertuples()
-        ]
-    }
-
-
-@app.get("/api/customer/{customer_id}")
-def customer_detail(customer_id: str):
-    row = STATE["agent_loop"].get_customer(customer_id)
-    history = STATE["memory"].history(customer_id, limit=80)
-    return {
-        "customer_id": customer_id, "first_name": row.first_name,
-        "segment": row.segment, "segment_label": C.SEGMENTS[row.segment]["label"],
-        "history": [dataclasses.asdict(m) for m in history],
-    }
-
-
-@app.get("/api/context/{customer_id}")
-def context_detail(customer_id: str):
-    row = STATE["agent_loop"].get_customer(customer_id)
-    seg_label = C.SEGMENTS[row.segment]["label"]
-    return summarize_customer(customer_id, row.first_name, seg_label, STATE["shopper_registry"], STATE["memory"])
 
 
 @app.get("/api/ledger")
