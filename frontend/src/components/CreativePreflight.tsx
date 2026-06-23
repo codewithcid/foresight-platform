@@ -3,8 +3,10 @@ import {
   CreativeCalibration, CreativeProofEntry, Meta, Preflight,
   getCreativeLedger, runPreflight, shipCreative,
 } from "../api";
+import { deliveryChannel, useNav } from "../nav";
 
 export default function CreativePreflight({ meta }: { meta: Meta | null }) {
+  const { go } = useNav();
   const [intervention, setIntervention] = useState("sms_discount");
   const [segment, setSegment] = useState("bargain_hunter");
   const [data, setData] = useState<Preflight | null>(null);
@@ -111,12 +113,27 @@ export default function CreativePreflight({ meta }: { meta: Meta | null }) {
               Beat the field by <span className="font-semibold">{pt.spread} pts</span> across a 3-persona panel
               <span className="text-slate-400"> · scoring: {pt.method === "ai" ? "Groq persona panel" : "heuristic fallback"}</span>
             </div>
-            {!shipped && (
-              <button onClick={shipWinner} disabled={shipping}
-                className="ml-auto px-4 py-2 rounded-md bg-accent text-ink text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition">
-                {shipping ? "Measuring…" : "Ship winner & measure →"}
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                onClick={() => {
+                  const win = data.variants.find((v) => v.id === pt.winner_id);
+                  if (!win) return;
+                  const ch = meta?.interventions.find((i) => i.key === data.intervention)?.channel;
+                  go("workflows", {
+                    segment: data.segment, intervention: data.intervention, channel: deliveryChannel(ch),
+                    copy: win.copy, angle: win.angle, from: "Creative Pre-Flight",
+                  });
+                }}
+                className="px-4 py-2 rounded-md border border-accent2/50 text-accent2 text-sm font-semibold hover:bg-accent2/10 transition">
+                Launch as campaign →
               </button>
-            )}
+              {!shipped && (
+                <button onClick={shipWinner} disabled={shipping}
+                  className="px-4 py-2 rounded-md bg-accent text-ink text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition">
+                  {shipping ? "Measuring…" : "Ship winner & measure →"}
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Creative proof: predicted resonance vs actual engagement */}

@@ -5,6 +5,9 @@ import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle, Metri
 import { stagger } from "../ui/motion";
 import { AnimatedNumber } from "../ui/ui";
 import { Activity, CheckDouble, Rupee, Target } from "./Icons";
+import { useNav } from "../nav";
+
+const prettyIntv = (k: string) => k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
 const inr = (x: number) => "₹" + Math.round(x).toLocaleString("en-IN");
 
@@ -24,6 +27,7 @@ function PredVsActual({ pred, actual }: { pred: number; actual: number }) {
 }
 
 export default function Proof() {
+  const { go } = useNav();
   const [runs, setRuns] = useState<Run[]>([]);
   const [cal, setCal] = useState<Calibration | null>(null);
 
@@ -88,6 +92,39 @@ export default function Proof() {
           )}
         </CardContent>
       </Card>
+
+      {/* The loop closing: proven outcomes recalibrate the model's predictions. */}
+      {cal?.correction_factors && Object.keys(cal.correction_factors).length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Model recalibration — the loop closing</CardTitle>
+            <CardDescription className="text-xs">
+              Every proven outcome nudges a per-action multiplier on the model's predicted lift (1.00× = neutral).
+              This is how proof feeds back so the next ROI prediction is sharper.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2.5">
+            {Object.entries(cal.correction_factors).map(([k, v]) => {
+              const neutral = Math.abs(v - 1) < 0.03;
+              const pctW = Math.min(100, Math.max(0, (v / 2) * 100));
+              return (
+                <div key={k}>
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="text-muted-foreground">{prettyIntv(k)}</span>
+                    <span className={`tabular-nums font-medium ${neutral ? "text-muted-foreground" : v > 1 ? "text-success" : "text-amber-500 dark:text-amber-400"}`}>{v.toFixed(2)}×</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-foreground/[0.06] overflow-hidden">
+                    <div className="h-full rounded-full bg-primary" style={{ width: `${pctW}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+            <button onClick={() => go("byocsv")} className="text-xs text-primary hover:underline mt-1">
+              See the predictive model →
+            </button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

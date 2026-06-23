@@ -500,6 +500,8 @@ class WorkflowRunRequest(BaseModel):
     budget: float | None = None
     test_recipient: str | None = None
     label: str | None = None
+    copy: str | None = None   # a specific creative to run (e.g. from Creative Pre-Flight)
+    angle: str | None = None
 
 
 class ApproveRequest(BaseModel):

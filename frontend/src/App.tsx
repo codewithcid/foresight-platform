@@ -11,7 +11,7 @@ import Channels from "./components/Channels";
 import Workflows from "./components/Workflows";
 import Proof from "./components/Proof";
 import Copilot from "./components/Copilot";
-import { NavContext } from "./nav";
+import { Handoff, NavContext } from "./nav";
 import { AnimatePresence, motion } from "framer-motion";
 import { pageTransition } from "./ui/motion";
 
@@ -44,6 +44,9 @@ export default function App({ onHome }: { onHome?: () => void }) {
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [personaId, setPersonaId] = useState<string>("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [handoff, setHandoff] = useState<Handoff>(null);
+
+  const go = (t: Tab, h: Handoff = null) => { setHandoff(h); setTab(t); };
 
   useEffect(() => {
     getMeta().then(setMeta);
@@ -57,9 +60,9 @@ export default function App({ onHome }: { onHome?: () => void }) {
   const personaLabel = persona ? `${persona.first_name} (${persona.segment_label})` : "…";
 
   return (
-    <NavContext.Provider value={setTab}>
+    <NavContext.Provider value={{ go, handoff, clearHandoff: () => setHandoff(null) }}>
     <div className="flex h-[100dvh] overflow-hidden">
-      <Sidebar tab={tab} setTab={setTab} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onHome={onHome} />
+      <Sidebar tab={tab} setTab={(t) => go(t)} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onHome={onHome} />
 
       <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100">
         <Header

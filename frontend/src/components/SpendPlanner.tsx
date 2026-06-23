@@ -4,6 +4,7 @@ import { Plan, getPlannerAnalyst, getPlannerDefaults, optimizePlan } from "../ap
 import { AnimatedNumber } from "../ui/ui";
 import { fadeUp, stagger } from "../ui/motion";
 import { exportPlanPdf } from "../report";
+import { deliveryChannel, useNav } from "../nav";
 
 const inr = (x: number) => "₹" + Math.round(x).toLocaleString("en-IN");
 const inrC = (x: number) =>
@@ -40,6 +41,7 @@ function Curve({ curve, budget }: { curve: { budget: number; incr_revenue: numbe
 }
 
 export default function SpendPlanner() {
+  const { go } = useNav();
   const [maxBudget, setMaxBudget] = useState(2000);
   const [budget, setBudget] = useState(0);
   const [plan, setPlan] = useState<Plan | null>(null);
@@ -211,22 +213,30 @@ export default function SpendPlanner() {
                   <tr className="text-left text-xs text-slate-400">
                     <th className="py-1.5">Segment</th><th>Channel</th>
                     <th className="text-right">Reach</th><th className="text-right">Cost</th>
-                    <th className="text-right">Pred. revenue</th><th className="text-right">ROI</th>
+                    <th className="text-right">Pred. revenue</th><th className="text-right">ROI</th><th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {plan.plan.map((p, i) => (
-                    <tr key={i} className="border-t border-slate-100 dark:border-line/50">
+                    <tr key={i} className="border-t border-slate-100 dark:border-line/50 group">
                       <td className="py-2 text-slate-700 dark:text-slate-200">{p.segment_label}</td>
                       <td className="text-slate-500 dark:text-slate-400">{p.intervention_label}</td>
                       <td className="text-right font-mono text-slate-600 dark:text-slate-300">{p.reach_funded.toLocaleString("en-IN")}</td>
                       <td className="text-right font-mono text-slate-600 dark:text-slate-300">{inr(p.cost)}</td>
                       <td className="text-right font-mono text-accent">{inr(p.pred_incr_revenue)}</td>
                       <td className="text-right font-mono text-slate-500">{p.roi}×</td>
+                      <td className="text-right">
+                        <button
+                          onClick={() => go("workflows", { segment: p.segment, intervention: p.intervention, channel: deliveryChannel(p.channel), from: "Spend Planner" })}
+                          className="text-[11px] text-accent2 opacity-60 group-hover:opacity-100 hover:underline whitespace-nowrap"
+                          title="Launch this allocation as a workflow">
+                          Launch →
+                        </button>
+                      </td>
                     </tr>
                   ))}
                   {plan.plan.length === 0 && (
-                    <tr><td colSpan={6} className="py-3 text-slate-500 text-center">Increase the budget to fund a plan.</td></tr>
+                    <tr><td colSpan={7} className="py-3 text-slate-500 text-center">Increase the budget to fund a plan.</td></tr>
                   )}
                 </tbody>
               </table>

@@ -167,10 +167,17 @@ class WorkflowEngine:
                    "checks": [f"{C.MAX_ACTIONS_PER_CUSTOMER_PER_DAY} actions/customer cap",
                               f"₹{budget:,.0f} budget", f"≥{C.MIN_REL_LIFT_TO_ACT*100:.0f}% lift", "brand-safety"]})
 
-        # 4. generate
+        # 4. generate (or use a creative handed in from Creative Pre-Flight)
         await step("generate", "running", {})
-        variants = creative.generate_variants(intervention, intv_label, seg_label, occasion_theme=None, n=3)
-        await step("generate", "done", {"n_variants": len(variants), "angles": [v["angle"] for v in variants]})
+        provided_copy = params.get("copy")
+        if provided_copy:
+            variants = [{"id": "provided", "angle": params.get("angle") or "approved", "headline": "",
+                         "body": provided_copy, "copy": provided_copy, "copy_source": "creative-preflight",
+                         "image_prompt": "", "image_url": ""}]
+            await step("generate", "done", {"n_variants": 1, "angles": ["approved"], "source": "Creative Pre-Flight"})
+        else:
+            variants = creative.generate_variants(intervention, intv_label, seg_label, occasion_theme=None, n=3)
+            await step("generate", "done", {"n_variants": len(variants), "angles": [v["angle"] for v in variants]})
 
         # 5. pretest
         await step("pretest", "running", {})
