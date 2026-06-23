@@ -1,0 +1,238 @@
+"""SQLite persistence for Foresight.
+
+Everything that should survive a restart lives here: the proof ledger (every
+agent decision + its predicted-vs-actual outcome), workflow runs and their
+per-step trace, and the channel delivery log (every real SMS/WhatsApp send).
+
+A single connection is shared process-wide (`check_same_thread=False`) and
+guarded by a lock, because FastAPI serves sync routes on a threadpool while the
+simulator/agent write from the event-loop thread.
+
+The DB path is `FORESIGHT_DB` if set (so a deployed host can point it at a
+persistent disk), else `backend/foresight.db`.
+"""
+from __future__ import annotations
+
+import json
+import os
+import sqlite3
+import threading
+import time
+from pathlib import Path
+
+_DB_PATH = os.environ.get("FORESIGHT_DB") or str(Path(__file__).resolve().parent / "foresight.db")
+_LOCK = threading.RLock()
+_CONN: sqlite3.Connection | None = None
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS proof_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts REAL, source TEXT DEFAULT 'sandbox', run_id INTEGER,
+    status TEXT, customer_id TEXT, first_name TEXT, segment TEXT,
+    intervention TEXT, intervention_label TEXT, channel TEXT,
+    predicted_rel_lift REAL, predicted_revenue REAL, cost REAL, roi REAL,
+    message TEXT, message_source TEXT, reason TEXT,
+    actual_rel_lift REAL, error REAL, resolved INTEGER DEFAULT 0,
+    product_id TEXT, product_name TEXT, occasion_key TEXT, bandit_reliability REAL
+);
+CREATE TABLE IF NOT EXISTS runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts REAL, workflow TEXT, label TEXT, status TEXT,
+    target TEXT, channel TEXT, params TEXT, summary TEXT
+);
+CREATE TABLE IF NOT EXISTS run_steps (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id INTEGER, idx INTEGER, name TEXT, label TEXT,
+    status TEXT, output TEXT, ts REAL
+);
+CREATE TABLE IF NOT EXISTS channel_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts REAL, channel TEXT, to_addr TEXT, body TEXT,
+    status TEXT, provider_id TEXT, error TEXT, run_id INTEGER,
+    customer_id TEXT, meta TEXT
+);
+"""
+
+
+def conn() -> sqlite3.Connection:
+    global _CONN
+    if _CONN is None:
+        _CONN = sqlite3.connect(_DB_PATH, check_same_thread=False)
+        _CONN.row_factory = sqlite3.Row
+        _CONN.executescript(SCHEMA)
+        _CONN.commit()
+    return _CONN
+
+
+def init(*, reset_sandbox: bool = True) -> None:
+    """Create tables. By default clears prior *sandbox* proof rows so the live
+    feed starts clean each boot — real workflow runs (source='workflow') and
+    channel logs persist."""
+    with _LOCK:
+        c = conn()
+        if reset_sandbox:
+            c.execute("DELETE FROM proof_entries WHERE source = 'sandbox'")
+        # Runs left mid-flight by a prior process can't resume -> mark failed so
+        # the runs/proof views stay clean.
+        c.execute("UPDATE runs SET status = 'failed' WHERE status = 'running'")
+        c.commit()
+
+
+def _row_to_dict(row: sqlite3.Row) -> dict:
+    d = dict(row)
+    d["resolved"] = bool(d.get("resolved"))
+    return d
+
+
+# --------------------------------------------------------------- generic JSON
+def _dumps(v) -> str:
+    return json.dumps(v, default=str)
+
+
+def _loads(s):
+    if s in (None, ""):
+        return None
+    try:
+        return json.loads(s)
+    except (json.JSONDecodeError, TypeError):
+        return s
+
+
+# ------------------------------------------------------------ proof entries
+_PROOF_COLS = [
+    "ts", "source", "run_id", "status", "customer_id", "first_name", "segment",
+    "intervention", "intervention_label", "channel", "predicted_rel_lift",
+    "predicted_revenue", "cost", "roi", "message", "message_source", "reason",
+    "actual_rel_lift", "error", "resolved", "product_id", "product_name",
+    "occasion_key", "bandit_reliability",
+]
+
+
+def insert_proof(fields: dict) -> dict:
+    with _LOCK:
+        c = conn()
+        cols = [k for k in _PROOF_COLS if k in fields]
+        placeholders = ", ".join("?" for _ in cols)
+        cur = c.execute(
+            f"INSERT INTO proof_entries ({', '.join(cols)}) VALUES ({placeholders})",
+            [fields[k] for k in cols],
+        )
+        c.commit()
+        return get_proof(cur.lastrowid)
+
+
+def update_proof(entry_id: int, fields: dict) -> dict:
+    with _LOCK:
+        c = conn()
+        sets = ", ".join(f"{k} = ?" for k in fields)
+        c.execute(f"UPDATE proof_entries SET {sets} WHERE id = ?", [*fields.values(), entry_id])
+        c.commit()
+        return get_proof(entry_id)
+
+
+def get_proof(entry_id: int) -> dict:
+    with _LOCK:
+        row = conn().execute("SELECT * FROM proof_entries WHERE id = ?", (entry_id,)).fetchone()
+    return _row_to_dict(row) if row else {}
+
+
+def recent_proof(limit: int = 60) -> list[dict]:
+    with _LOCK:
+        rows = conn().execute("SELECT * FROM proof_entries ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+    return [_row_to_dict(r) for r in rows]
+
+
+def all_proof() -> list[dict]:
+    with _LOCK:
+        rows = conn().execute("SELECT * FROM proof_entries ORDER BY id ASC").fetchall()
+    return [_row_to_dict(r) for r in rows]
+
+
+# ----------------------------------------------------------------- runs
+def insert_run(workflow: str, label: str, target: str, channel: str, params: dict) -> int:
+    with _LOCK:
+        c = conn()
+        cur = c.execute(
+            "INSERT INTO runs (ts, workflow, label, status, target, channel, params, summary) "
+            "VALUES (?,?,?,?,?,?,?,?)",
+            (time.time(), workflow, label, "running", target, channel, _dumps(params), _dumps({})),
+        )
+        c.commit()
+        return cur.lastrowid
+
+
+def update_run(run_id: int, *, status: str | None = None, summary: dict | None = None) -> None:
+    with _LOCK:
+        c = conn()
+        if status is not None:
+            c.execute("UPDATE runs SET status = ? WHERE id = ?", (status, run_id))
+        if summary is not None:
+            c.execute("UPDATE runs SET summary = ? WHERE id = ?", (_dumps(summary), run_id))
+        c.commit()
+
+
+def add_step(run_id: int, idx: int, name: str, label: str, status: str, output: dict) -> int:
+    with _LOCK:
+        c = conn()
+        cur = c.execute(
+            "INSERT INTO run_steps (run_id, idx, name, label, status, output, ts) VALUES (?,?,?,?,?,?,?)",
+            (run_id, idx, name, label, status, _dumps(output), time.time()),
+        )
+        c.commit()
+        return cur.lastrowid
+
+
+def update_step(step_id: int, *, status: str | None = None, output: dict | None = None) -> None:
+    with _LOCK:
+        c = conn()
+        if status is not None:
+            c.execute("UPDATE run_steps SET status = ? WHERE id = ?", (status, step_id))
+        if output is not None:
+            c.execute("UPDATE run_steps SET output = ? WHERE id = ?", (_dumps(output), step_id))
+        c.commit()
+
+
+def get_run(run_id: int) -> dict | None:
+    with _LOCK:
+        r = conn().execute("SELECT * FROM runs WHERE id = ?", (run_id,)).fetchone()
+        if not r:
+            return None
+        run = dict(r)
+        run["params"] = _loads(run.get("params"))
+        run["summary"] = _loads(run.get("summary"))
+        steps = conn().execute("SELECT * FROM run_steps WHERE run_id = ? ORDER BY idx ASC", (run_id,)).fetchall()
+    run["steps"] = [{**dict(s), "output": _loads(dict(s).get("output"))} for s in steps]
+    return run
+
+
+def list_runs(limit: int = 50) -> list[dict]:
+    with _LOCK:
+        rows = conn().execute("SELECT * FROM runs ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+    out = []
+    for r in rows:
+        d = dict(r)
+        d["params"] = _loads(d.get("params"))
+        d["summary"] = _loads(d.get("summary"))
+        out.append(d)
+    return out
+
+
+# ------------------------------------------------------------- channel logs
+def log_channel(channel: str, to_addr: str, body: str, status: str,
+                provider_id: str = "", error: str = "", run_id: int | None = None,
+                customer_id: str = "", meta: dict | None = None) -> int:
+    with _LOCK:
+        c = conn()
+        cur = c.execute(
+            "INSERT INTO channel_logs (ts, channel, to_addr, body, status, provider_id, error, run_id, customer_id, meta) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (time.time(), channel, to_addr, body, status, provider_id, error, run_id, customer_id, _dumps(meta or {})),
+        )
+        c.commit()
+        return cur.lastrowid
+
+
+def recent_channel_logs(limit: int = 50) -> list[dict]:
+    with _LOCK:
+        rows = conn().execute("SELECT * FROM channel_logs ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+    return [{**dict(r), "meta": _loads(dict(r).get("meta"))} for r in rows]

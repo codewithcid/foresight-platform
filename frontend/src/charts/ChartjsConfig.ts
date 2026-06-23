@@ -1,0 +1,44 @@
+import { Chart, Tooltip } from "chart.js";
+import type { ScriptableContext } from "chart.js";
+import { adjustColorOpacity, getCssVariable } from "./utils";
+
+Chart.register(Tooltip);
+
+// Global Chart.js defaults to match the Mosaic design language.
+Chart.defaults.font.family = '"Inter", sans-serif';
+Chart.defaults.font.weight = 500;
+Chart.defaults.plugins.tooltip.borderWidth = 1;
+Chart.defaults.plugins.tooltip.displayColors = false;
+Chart.defaults.plugins.tooltip.mode = "nearest";
+Chart.defaults.plugins.tooltip.intersect = false;
+Chart.defaults.plugins.tooltip.position = "nearest";
+Chart.defaults.plugins.tooltip.caretSize = 0;
+Chart.defaults.plugins.tooltip.caretPadding = 20;
+Chart.defaults.plugins.tooltip.cornerRadius = 8;
+Chart.defaults.plugins.tooltip.padding = 8;
+
+type ColorStop = { stop: number; color: string };
+
+/** Build a vertical linear gradient for line/area chart fills. */
+export const chartAreaGradient = (
+  ctx: CanvasRenderingContext2D | null,
+  chartArea: { top: number; bottom: number } | null,
+  colorStops: ColorStop[],
+): CanvasGradient | string => {
+  if (!ctx || !chartArea || !colorStops || colorStops.length === 0) return "transparent";
+  const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+  colorStops.forEach(({ stop, color }) => gradient.addColorStop(stop, color));
+  return gradient;
+};
+
+export type { ScriptableContext };
+
+export const chartColors = {
+  textColor: { light: getCssVariable("--color-gray-400"), dark: getCssVariable("--color-gray-500") },
+  gridColor: { light: getCssVariable("--color-gray-100"), dark: adjustColorOpacity(getCssVariable("--color-gray-700"), 0.6) },
+  backdropColor: { light: "#ffffff", dark: getCssVariable("--color-gray-800") },
+  tooltipTitleColor: { light: getCssVariable("--color-gray-800"), dark: getCssVariable("--color-gray-100") },
+  tooltipBodyColor: { light: getCssVariable("--color-gray-500"), dark: getCssVariable("--color-gray-400") },
+  tooltipBgColor: { light: "#ffffff", dark: getCssVariable("--color-gray-700") },
+  tooltipBorderColor: { light: getCssVariable("--color-gray-200"), dark: getCssVariable("--color-gray-600") },
+};

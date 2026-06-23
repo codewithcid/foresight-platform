@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "foresight": {
+      "command": "python3",
+      "args": [
+        "/Users/rochitlen/Documents/Claude/Projects/epsilonR/foresight/backend/mcp_server.py"
+      ]
+    }
+  }
+}
