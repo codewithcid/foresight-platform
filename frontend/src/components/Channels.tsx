@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ChannelStatus, ChannelLog, getChannels, getChannelLogs, testChannel } from "../api";
+import { ChannelStatus, ChannelLog, getChannels, getChannelLogs, getEngagement, testChannel } from "../api";
 import { Badge, Card, CardContent, CardDescription, CardHeader, CardHeaderRow, CardTitle, IconChip } from "../ui/dash";
 import { stagger, fadeUp } from "../ui/motion";
 
@@ -106,9 +106,15 @@ function ChannelCard({ c, onSent }: { c: ChannelStatus; onSent: () => void }) {
 export default function Channels() {
   const [channels, setChannels] = useState<ChannelStatus[]>([]);
   const [logs, setLogs] = useState<ChannelLog[]>([]);
+  const [eng, setEng] = useState<Record<string, number>>({});
 
-  function refreshLogs() { getChannelLogs(20).then((d) => setLogs(d.logs)); }
-  useEffect(() => { getChannels().then((d) => setChannels(d.channels)); refreshLogs(); }, []);
+  function refreshLogs() { getChannelLogs(25).then((d) => setLogs(d.logs)); getEngagement(1).then((d) => setEng(d.summary)); }
+  useEffect(() => {
+    getChannels().then((d) => setChannels(d.channels));
+    refreshLogs();
+    const t = setInterval(refreshLogs, 6000); // pick up clicks/opens/replies as they land
+    return () => clearInterval(t);
+  }, []);
 
   const liveCount = channels.filter((c) => c.configured).length;
 
@@ -127,25 +133,40 @@ export default function Channels() {
         ))}
       </motion.div>
 
+      {/* Real engagement — measured opens/clicks/replies, not modeled */}
+      <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+        {([["sent", "Sent"], ["open", "Opens"], ["click", "Clicks"], ["reply", "Replies"]] as [string, string][]).map(([k, label]) => (
+          <div key={k} className="rounded-xl ring-1 ring-foreground/10 bg-card p-3">
+            <div className="font-grotesk text-2xl font-bold tabular-nums">{eng[k] ?? 0}</div>
+            <div className="text-[11px] text-muted-foreground">{label}</div>
+          </div>
+        ))}
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-sm">Delivery log</CardTitle>
-          <CardDescription className="text-xs">Every real send, persisted to the audit trail.</CardDescription>
+          <CardDescription className="text-xs">Every send and reply, persisted — opens &amp; link-clicks are real engagement, not modeled.</CardDescription>
         </CardHeader>
         <CardContent>
           {logs.length === 0 ? (
             <p className="text-sm text-muted-foreground">No sends yet. Connect a channel and send a test.</p>
           ) : (
             <div className="flex flex-col divide-y divide-border">
-              {logs.map((l) => (
-                <div key={l.id} className="flex items-center gap-3 py-2.5 text-sm">
-                  <Badge tone={l.status === "sent" ? "success" : "destructive"}>{l.status}</Badge>
-                  <span className="font-medium capitalize w-20 shrink-0">{l.channel}</span>
-                  <span className="text-muted-foreground font-mono text-xs shrink-0">{l.to_addr}</span>
-                  <span className="text-muted-foreground truncate flex-1">{l.error || l.body}</span>
-                  <span className="text-muted-foreground/70 text-xs shrink-0">{timeAgo(l.ts)}</span>
-                </div>
-              ))}
+              {logs.map((l) => {
+                const inbound = l.direction === "in" || l.status === "received";
+                return (
+                  <div key={l.id} className="flex items-center gap-3 py-2.5 text-sm">
+                    <Badge tone={inbound ? "default" : l.status === "sent" ? "success" : "destructive"}>
+                      {inbound ? "↩ received" : l.status}
+                    </Badge>
+                    <span className="font-medium capitalize w-20 shrink-0">{l.channel}</span>
+                    <span className="text-muted-foreground font-mono text-xs shrink-0 max-w-[10rem] truncate">{l.to_addr}</span>
+                    <span className={`truncate flex-1 ${inbound ? "text-card-foreground/90 italic" : "text-muted-foreground"}`}>{l.error || l.body}</span>
+                    <span className="text-muted-foreground/70 text-xs shrink-0">{timeAgo(l.ts)}</span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </CardContent>

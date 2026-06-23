@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Calibration, Run, getCalibration, getRuns } from "../api";
+import { Calibration, Run, getCalibration, getEngagement, getRuns } from "../api";
 import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle, MetricCard } from "../ui/dash";
 import { stagger } from "../ui/motion";
 import { AnimatedNumber } from "../ui/ui";
@@ -30,11 +30,16 @@ export default function Proof() {
   const { go } = useNav();
   const [runs, setRuns] = useState<Run[]>([]);
   const [cal, setCal] = useState<Calibration | null>(null);
+  const [eng, setEng] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    getRuns(50).then((d) => setRuns(d.runs));
-    getCalibration().then(setCal);
-    const t = setInterval(() => { getRuns(50).then((d) => setRuns(d.runs)); getCalibration().then(setCal); }, 8000);
+    const load = () => {
+      getRuns(50).then((d) => setRuns(d.runs));
+      getCalibration().then(setCal);
+      getEngagement(1).then((d) => setEng(d.summary)).catch(() => {});
+    };
+    load();
+    const t = setInterval(load, 8000);
     return () => clearInterval(t);
   }, []);
 
@@ -49,6 +54,16 @@ export default function Proof() {
         held-out ground truth — success is quantified, not claimed. This is the proof spine behind Theme 2's
         "clear measures of success."
       </p>
+
+      {(eng.click || eng.open || eng.reply) ? (
+        <div className="rounded-xl ring-1 ring-success/30 bg-success/[0.06] p-3 text-sm flex flex-wrap items-center gap-x-5 gap-y-1">
+          <span className="font-semibold text-success">Measured engagement (real, not modeled):</span>
+          <span><b className="tabular-nums">{eng.open ?? 0}</b> opens</span>
+          <span><b className="tabular-nums">{eng.click ?? 0}</b> link clicks</span>
+          <span><b className="tabular-nums">{eng.reply ?? 0}</b> replies</span>
+          <span className="text-muted-foreground text-xs">— tracked from real sends, attributed back to each run.</span>
+        </div>
+      ) : null}
 
       <motion.div variants={stagger} initial="hidden" animate="show" className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <MetricCard icon={<CheckDouble size={16} />} label="Proven campaigns"

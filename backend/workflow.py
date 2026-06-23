@@ -26,6 +26,7 @@ import config as C
 import creative
 import db
 import pre_test
+import tracking
 from channels import slack as slack_ch
 
 # Definition of the canonical step sequence (for the UI to render the graph).
@@ -230,11 +231,16 @@ class WorkflowEngine:
         # so they deliver even without an explicit test recipient.
         has_default = st["channel_id"] in ("slack", "telegram")
         if ch and ch.configured() and (recipient or has_default):
-            res = ch.send(recipient, st["winner"]["copy"], meta={"run_id": run_id, "kind": "workflow"})
+            # Carry a tracked link tied to this run so clicks feed the proof.
+            body = tracking.append_link(st["winner"]["copy"], run_id, st["channel_id"], recipient or "")
+            res = ch.send(recipient, body, meta={"run_id": run_id, "kind": "workflow"})
             delivered, provider_id, err = res.ok, res.provider_id, res.error
-            db.log_channel(channel=ch.id, to_addr=recipient, body=st["winner"]["copy"],
+            db.log_channel(channel=ch.id, to_addr=recipient, body=body,
                            status="sent" if res.ok else "failed", provider_id=provider_id, error=err,
                            run_id=run_id, meta={"kind": "workflow", "sandbox": res.sandbox})
+            if res.ok and recipient:
+                self.ctx["memory"].append(recipient, st["channel_id"], "agent", body,
+                                          meta={"run_id": run_id, "kind": "workflow"})
         await step("deliver", "done", {
             "channel": st["channel_id"], "reach_queued": pred["reach"],
             "test_send": bool(recipient), "delivered": delivered,
