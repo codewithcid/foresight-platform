@@ -17,7 +17,7 @@ from contextlib import asynccontextmanager
 import pandas as pd
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -36,8 +36,10 @@ import explainer
 import forecast
 import images
 import llm
+import nlp
 import occasions as O
 import supervisor
+import tracking
 import workflow as workflow_mod
 from agent import AgentLoop
 from bandit import ThompsonBandit
@@ -480,7 +482,9 @@ def channels_test(channel_id: str, req: TestSendRequest):
     ch = channels.get_channel(channel_id)
     if ch is None:
         raise HTTPException(404, f"no such channel: {channel_id}")
-    body = req.body or f"Foresight test message via {ch.label}. Anticipate, activate, prove."
+    base = req.body or f"Foresight test via {ch.label} — see your personalized picks:"
+    # Carry a tracked link so a click is logged as a real engagement.
+    body = tracking.append_link(base, None, ch.id, req.to)
     result = ch.send(req.to, body, meta={"kind": "test"})
     db.log_channel(
         channel=ch.id, to_addr=req.to, body=body,
@@ -488,7 +492,115 @@ def channels_test(channel_id: str, req: TestSendRequest):
         provider_id=result.provider_id, error=result.error,
         meta={"kind": "test", "sandbox": result.sandbox},
     )
+    # Remember the outbound so an inbound reply has cross-channel context.
+    if result.ok and req.to:
+        STATE["memory"].append(req.to, ch.id, "agent", body, meta={"kind": "test"})
     return result.as_dict()
+
+
+# ---------------------------------------------------- tracked links + engagement
+@app.get("/r/{token}")
+def tracked_redirect(token: str):
+    """A tracked short link: log the click as a real engagement, then 302 on."""
+    link = db.get_link(token)
+    if not link:
+        return RedirectResponse(tracking.DEFAULT_DEST, status_code=302)
+    db.record_engagement("click", link.get("channel", ""), link.get("to_addr", ""),
+                         run_id=link.get("run_id"), detail="link click")
+    return RedirectResponse(link.get("url") or tracking.DEFAULT_DEST, status_code=302)
+
+
+@app.get("/api/engagement")
+def engagement(limit: int = 40):
+    return {"events": db.recent_engagement(limit), "summary": db.engagement_summary()}
+
+
+@app.post("/api/webhooks/resend")
+async def webhook_resend(request: Request):
+    """Resend email open/click webhook -> real engagement tied to the email send."""
+    try:
+        body = await request.json()
+    except Exception:
+        return {"ok": False}
+    etype = body.get("type", "")
+    email_id = (body.get("data") or {}).get("email_id") or (body.get("data") or {}).get("id") or ""
+    kind = "open" if "opened" in etype else "click" if "clicked" in etype else ""
+    if kind:
+        log = db.find_channel_log_by_provider(email_id)
+        run_id = log.get("run_id") if log else None
+        to_addr = log.get("to_addr") if log else ""
+        db.record_engagement(kind, "email", to_addr or "", run_id=run_id, detail=etype)
+    return {"ok": True}
+
+
+# -------------------------------------------------------------- inbound replies
+def _handle_inbound(channel: str, sender: str, text: str) -> str:
+    """Customer replied on a channel: log it, read cross-channel memory, draft a
+    reply with the concierge, and persist both sides. Returns the reply text."""
+    memory = STATE["memory"]
+    memory.append(sender, channel, "customer", text)
+    db.log_channel(channel=channel, to_addr=sender, body=text, status="received", direction="in")
+    db.record_engagement("reply", channel, sender, detail=text[:140])
+    ctx = memory.context_summary(sender)
+    reply, source = llm.concierge_reply("there", "valued customer", channel, ctx, text, history=None)
+    memory.append(sender, channel, "agent", reply, meta={"source": source, "inbound_reply": True})
+    db.log_channel(channel=channel, to_addr=sender, body=reply, status="sent", direction="out",
+                   meta={"source": source, "inbound_reply": True})
+    return reply
+
+
+@app.post("/api/webhooks/twilio")
+async def webhook_twilio(request: Request):
+    """Inbound SMS / WhatsApp (Twilio messaging webhook). Replies via TwiML."""
+    form = await request.form()
+    sender = str(form.get("From", ""))
+    text = str(form.get("Body", "")).strip()
+    channel = "whatsapp" if sender.startswith("whatsapp:") else "sms"
+    reply = _handle_inbound(channel, sender, text) if text else "Sorry, I didn't catch that."
+    safe = reply.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    xml = f"<?xml version='1.0' encoding='UTF-8'?><Response><Message>{safe}</Message></Response>"
+    return Response(content=xml, media_type="application/xml")
+
+
+@app.post("/api/webhooks/telegram")
+async def webhook_telegram(request: Request):
+    """Inbound Telegram (bot webhook). Replies via the Telegram API."""
+    try:
+        update = await request.json()
+    except Exception:
+        return {"ok": False}
+    msg = update.get("message") or update.get("edited_message") or {}
+    chat_id = str((msg.get("chat") or {}).get("id", ""))
+    text = (msg.get("text") or "").strip()
+    if chat_id and text:
+        reply = _handle_inbound("telegram", chat_id, text)
+        ch = channels.get_channel("telegram")
+        if ch:
+            ch.send(chat_id, reply, meta={"inbound_reply": True})
+    return {"ok": True}
+
+
+@app.post("/api/webhooks/slack")
+async def webhook_slack(request: Request):
+    """Slack Events API: URL-verification handshake + inbound message replies."""
+    try:
+        body = await request.json()
+    except Exception:
+        return {"ok": False}
+    if body.get("type") == "url_verification":
+        return {"challenge": body.get("challenge", "")}
+    # Ignore Slack's automatic retries to avoid duplicate replies.
+    if request.headers.get("x-slack-retry-num"):
+        return {"ok": True}
+    event = body.get("event") or {}
+    if event.get("type") == "message" and not event.get("bot_id") and not event.get("subtype"):
+        text = (event.get("text") or "").strip()
+        if text:
+            reply = _handle_inbound("slack", event.get("channel", ""), text)
+            ch = channels.get_channel("slack")
+            if ch:
+                ch.send("", reply, meta={"inbound_reply": True})
+    return {"ok": True}
 
 
 # ------------------------------------------------------------------ workflows

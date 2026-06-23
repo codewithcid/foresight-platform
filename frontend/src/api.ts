@@ -238,12 +238,17 @@ export type ChannelStatus = {
 export type ChannelLog = {
   id: number; ts: number; channel: string; to_addr: string; body: string;
   status: string; provider_id: string; error: string; customer_id: string; meta: any;
+  direction?: string;
 };
+export type EngagementEvent = { id: number; ts: number; kind: string; channel: string; to_addr: string; run_id: number | null; detail: string };
 export async function getChannels(): Promise<{ channels: ChannelStatus[] }> {
   return fetch(`${BASE}/api/channels`).then((r) => r.json());
 }
 export async function getChannelLogs(limit = 30): Promise<{ logs: ChannelLog[] }> {
   return fetch(`${BASE}/api/channels/logs?limit=${limit}`).then((r) => r.json());
+}
+export async function getEngagement(limit = 40): Promise<{ events: EngagementEvent[]; summary: Record<string, number> }> {
+  return fetch(`${BASE}/api/engagement?limit=${limit}`).then((r) => r.json());
 }
 export async function testChannel(id: string, to: string, body?: string): Promise<{
   ok: boolean; channel: string; to: string; provider_id: string; error: string; sandbox: boolean;

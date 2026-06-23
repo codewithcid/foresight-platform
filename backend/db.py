@@ -49,7 +49,14 @@ CREATE TABLE IF NOT EXISTS channel_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ts REAL, channel TEXT, to_addr TEXT, body TEXT,
     status TEXT, provider_id TEXT, error TEXT, run_id INTEGER,
-    customer_id TEXT, meta TEXT
+    customer_id TEXT, meta TEXT, direction TEXT DEFAULT 'out'
+);
+CREATE TABLE IF NOT EXISTS links (
+    token TEXT PRIMARY KEY, ts REAL, run_id INTEGER, channel TEXT, to_addr TEXT, url TEXT
+);
+CREATE TABLE IF NOT EXISTS engagement (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL, kind TEXT, channel TEXT,
+    to_addr TEXT, run_id INTEGER, detail TEXT
 );
 """
 
@@ -75,6 +82,11 @@ def init(*, reset_sandbox: bool = True) -> None:
         # Runs left mid-flight by a prior process can't resume -> mark failed so
         # the runs/proof views stay clean.
         c.execute("UPDATE runs SET status = 'failed' WHERE status = 'running'")
+        # Migration: add direction to a channel_logs table created before it existed.
+        try:
+            c.execute("ALTER TABLE channel_logs ADD COLUMN direction TEXT DEFAULT 'out'")
+        except sqlite3.OperationalError:
+            pass
         c.commit()
 
 
@@ -220,13 +232,13 @@ def list_runs(limit: int = 50) -> list[dict]:
 # ------------------------------------------------------------- channel logs
 def log_channel(channel: str, to_addr: str, body: str, status: str,
                 provider_id: str = "", error: str = "", run_id: int | None = None,
-                customer_id: str = "", meta: dict | None = None) -> int:
+                customer_id: str = "", meta: dict | None = None, direction: str = "out") -> int:
     with _LOCK:
         c = conn()
         cur = c.execute(
-            "INSERT INTO channel_logs (ts, channel, to_addr, body, status, provider_id, error, run_id, customer_id, meta) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?)",
-            (time.time(), channel, to_addr, body, status, provider_id, error, run_id, customer_id, _dumps(meta or {})),
+            "INSERT INTO channel_logs (ts, channel, to_addr, body, status, provider_id, error, run_id, customer_id, meta, direction) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (time.time(), channel, to_addr, body, status, provider_id, error, run_id, customer_id, _dumps(meta or {}), direction),
         )
         c.commit()
         return cur.lastrowid
@@ -236,3 +248,52 @@ def recent_channel_logs(limit: int = 50) -> list[dict]:
     with _LOCK:
         rows = conn().execute("SELECT * FROM channel_logs ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
     return [{**dict(r), "meta": _loads(dict(r).get("meta"))} for r in rows]
+
+
+def find_channel_log_by_provider(provider_id: str) -> dict | None:
+    if not provider_id:
+        return None
+    with _LOCK:
+        r = conn().execute("SELECT * FROM channel_logs WHERE provider_id = ? ORDER BY id DESC LIMIT 1", (provider_id,)).fetchone()
+    return dict(r) if r else None
+
+
+# ------------------------------------------------------------- links + engagement
+def create_link(token: str, url: str, run_id: int | None, channel: str, to_addr: str) -> None:
+    with _LOCK:
+        c = conn()
+        c.execute("INSERT OR REPLACE INTO links (token, ts, run_id, channel, to_addr, url) VALUES (?,?,?,?,?,?)",
+                  (token, time.time(), run_id, channel, to_addr, url))
+        c.commit()
+
+
+def get_link(token: str) -> dict | None:
+    with _LOCK:
+        r = conn().execute("SELECT * FROM links WHERE token = ?", (token,)).fetchone()
+    return dict(r) if r else None
+
+
+def record_engagement(kind: str, channel: str, to_addr: str = "", run_id: int | None = None, detail: str = "") -> int:
+    with _LOCK:
+        c = conn()
+        cur = c.execute(
+            "INSERT INTO engagement (ts, kind, channel, to_addr, run_id, detail) VALUES (?,?,?,?,?,?)",
+            (time.time(), kind, channel, to_addr, run_id, detail))
+        c.commit()
+        return cur.lastrowid
+
+
+def recent_engagement(limit: int = 40) -> list[dict]:
+    with _LOCK:
+        rows = conn().execute("SELECT * FROM engagement ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def engagement_summary() -> dict:
+    with _LOCK:
+        rows = conn().execute("SELECT kind, COUNT(*) n FROM engagement GROUP BY kind").fetchall()
+    out = {r["kind"]: r["n"] for r in rows}
+    with _LOCK:
+        sent = conn().execute("SELECT COUNT(*) n FROM channel_logs WHERE status='sent' AND direction='out'").fetchone()["n"]
+    out["sent"] = sent
+    return out
