@@ -23,7 +23,6 @@ export type LedgerEntry = {
   occasion_key?: string | null;
 };
 
-export type Persona = { customer_id: string; first_name: string; segment: string; segment_label: string };
 export type BanditArm = { segment: string; intervention: string; mean_reliability: number; trials: number; alpha: number; beta: number };
 export type AgentOpsTrace = { step: number; tool: string; args: Record<string, any>; result: any };
 export type AgentOpsResponse = { answer: string; trace: AgentOpsTrace[] };
@@ -109,10 +108,6 @@ export async function simSpeed(speed: number) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ speed }),
   }).then((r) => r.json());
-}
-
-export async function getDemoPersonas(): Promise<{ personas: Persona[] }> {
-  return fetch(`${BASE}/api/demo/personas`).then((r) => r.json());
 }
 
 export async function getExplain(entryId: number) {

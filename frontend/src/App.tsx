@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Meta, Persona, getDemoPersonas, getMeta } from "./api";
+import { Meta, getMeta } from "./api";
 import Sidebar, { Tab } from "./components/Sidebar";
 import Header from "./components/Header";
 import Dashboard from "./components/Dashboard";
@@ -42,8 +42,6 @@ const SUBTITLES: Record<Tab, string> = {
 export default function App({ onHome }: { onHome?: () => void }) {
   const [tab, setTab] = useState<Tab>("dashboard");
   const [meta, setMeta] = useState<Meta | null>(null);
-  const [personas, setPersonas] = useState<Persona[]>([]);
-  const [personaId, setPersonaId] = useState<string>("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [handoff, setHandoff] = useState<Handoff>(null);
   const [tourStep, setTourStep] = useState<number | null>(null);
@@ -52,14 +50,7 @@ export default function App({ onHome }: { onHome?: () => void }) {
 
   useEffect(() => {
     getMeta().then(setMeta);
-    getDemoPersonas().then((d) => {
-      setPersonas(d.personas);
-      if (d.personas.length) setPersonaId(d.personas[0].customer_id);
-    });
   }, []);
-
-  const persona = personas.find((p) => p.customer_id === personaId);
-  const personaLabel = persona ? `${persona.first_name} (${persona.segment_label})` : "…";
 
   return (
     <NavContext.Provider value={{ go, handoff, clearHandoff: () => setHandoff(null), startTour: () => setTourStep(0) }}>
@@ -72,9 +63,6 @@ export default function App({ onHome }: { onHome?: () => void }) {
           subtitle={SUBTITLES[tab]}
           sidebarOpen={sidebarOpen}
           setSidebarOpen={setSidebarOpen}
-          personas={personas}
-          personaId={personaId}
-          setPersonaId={setPersonaId}
         />
 
         <main className="grow">

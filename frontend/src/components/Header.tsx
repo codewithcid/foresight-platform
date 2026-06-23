@@ -1,4 +1,3 @@
-import { Persona } from "../api";
 import { useTheme } from "../ThemeContext";
 import { Moon, Sun } from "./Icons";
 
@@ -7,17 +6,11 @@ export default function Header({
   subtitle,
   sidebarOpen,
   setSidebarOpen,
-  personas,
-  personaId,
-  setPersonaId,
 }: {
   title: string;
   subtitle?: string;
   sidebarOpen: boolean;
   setSidebarOpen: (v: boolean) => void;
-  personas: Persona[];
-  personaId: string;
-  setPersonaId: (id: string) => void;
 }) {
   const { theme, toggle } = useTheme();
 
@@ -56,20 +49,8 @@ export default function Header({
             </div>
           </div>
 
-          {/* Right: persona + theme */}
+          {/* Right: theme toggle */}
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2">
-              <span className="text-[11px] text-gray-500 dark:text-gray-400">Viewing as</span>
-              <select
-                value={personaId}
-                onChange={(e) => setPersonaId(e.target.value)}
-                className="form-select text-xs py-1.5"
-              >
-                {personas.map((p) => (
-                  <option key={p.customer_id} value={p.customer_id}>{p.first_name} · {p.segment_label}</option>
-                ))}
-              </select>
-            </div>
             <button
               onClick={toggle}
               title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
