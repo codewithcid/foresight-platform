@@ -3,6 +3,7 @@ import { Meta } from "../api";
 import MissionControl from "./MissionControl";
 import BanditPanel from "./BanditPanel";
 import ModelCard from "./ModelCard";
+import RoiLoop from "./RoiLoop";
 import { Bolt, Dice, Shield } from "./Icons";
 
 type InnerTab = "feed" | "bandit" | "model";
@@ -13,6 +14,7 @@ export default function Dashboard({ meta }: { meta: Meta | null }) {
 
   return (
     <div>
+      <RoiLoop />
       <div className="flex flex-wrap gap-1 mb-5 p-1 bg-card ring-1 ring-foreground/10 rounded-xl w-fit">
         {([
           ["feed", <Bolt key="b" size={14} />, "Live Agent Feed"],

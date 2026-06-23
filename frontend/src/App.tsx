@@ -11,6 +11,7 @@ import Channels from "./components/Channels";
 import Workflows from "./components/Workflows";
 import Proof from "./components/Proof";
 import Copilot from "./components/Copilot";
+import { NavContext } from "./nav";
 import { AnimatePresence, motion } from "framer-motion";
 import { pageTransition } from "./ui/motion";
 
@@ -23,6 +24,18 @@ const TITLES: Record<Tab, string> = {
   channels: "Channels",
   proof: "Proof",
   agentops: "Agent Console",
+};
+
+// One line per surface: its role in the core loop of predicting (and proving) ROI.
+const SUBTITLES: Record<Tab, string> = {
+  dashboard: "Live cockpit — watch predicted ROI being acted on, and the loop learn.",
+  workflows: "Activate — orchestrate the ROI-maximizing action, end to end.",
+  planner: "Anticipate — allocate budget to the highest-predicted-ROI segments.",
+  byocsv: "Anticipate — the causal model that predicts each customer's ROI.",
+  creative: "Activate — predict which creative lifts ROI, before you spend.",
+  channels: "Activate — the real rails that turn predicted ROI into realized ROI.",
+  proof: "Prove — actual vs. predicted ROI on every campaign.",
+  agentops: "Operate — drive the whole ROI loop in natural language.",
 };
 
 export default function App({ onHome }: { onHome?: () => void }) {
@@ -44,12 +57,14 @@ export default function App({ onHome }: { onHome?: () => void }) {
   const personaLabel = persona ? `${persona.first_name} (${persona.segment_label})` : "…";
 
   return (
+    <NavContext.Provider value={setTab}>
     <div className="flex h-[100dvh] overflow-hidden">
       <Sidebar tab={tab} setTab={setTab} sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} onHome={onHome} />
 
       <div className="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100">
         <Header
           title={TITLES[tab]}
+          subtitle={SUBTITLES[tab]}
           sidebarOpen={sidebarOpen}
           setSidebarOpen={setSidebarOpen}
           personas={personas}
@@ -83,5 +98,6 @@ export default function App({ onHome }: { onHome?: () => void }) {
 
       <Copilot />
     </div>
+    </NavContext.Provider>
   );
 }

@@ -4,6 +4,7 @@ import { Moon, Sun } from "./Icons";
 
 export default function Header({
   title,
+  subtitle,
   sidebarOpen,
   setSidebarOpen,
   personas,
@@ -11,6 +12,7 @@ export default function Header({
   setPersonaId,
 }: {
   title: string;
+  subtitle?: string;
   sidebarOpen: boolean;
   setSidebarOpen: (v: boolean) => void;
   personas: Persona[];
@@ -48,6 +50,9 @@ export default function Header({
               <h1 className="font-grotesk text-xl sm:text-2xl font-extrabold tracking-tight text-gray-800 dark:text-gray-100 truncate -mt-0.5">
                 {title}
               </h1>
+              {subtitle && (
+                <p className="hidden md:block text-[11px] text-gray-500 dark:text-gray-400 truncate -mt-0.5">{subtitle}</p>
+              )}
             </div>
           </div>
 
