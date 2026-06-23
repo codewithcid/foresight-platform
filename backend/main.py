@@ -37,6 +37,7 @@ import images
 import llm
 import nlp
 import occasions as O
+import seed
 import supervisor
 import tracking
 import workflow as workflow_mod
@@ -100,6 +101,7 @@ async def lifespan(app: FastAPI):
 
     STATE["creative_ledger"] = creative_proof.CreativeLedger()
     STATE["workflow"] = workflow_mod.WorkflowEngine(STATE)
+    seeded = seed.seed_if_empty()  # populate Proof/Command on a fresh DB
 
     STATE["tools"] = build_tools(STATE)
 
