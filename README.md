@@ -1,5 +1,9 @@
 # ◎ Foresight — anticipate · activate · prove
 
+[![CI](https://github.com/codewithcid/foresight-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/codewithcid/foresight-platform/actions/workflows/ci.yml)
+
+**▶ Live demo: https://foresight-kp1g.onrender.com** &nbsp;·&nbsp; *(free tier — first load can take ~50s to wake)*
+
 **Epsilon TeXpedition · Theme 2** — *How can we use AI to deliver seamless customer
 experiences across channels while defining clear measures of success?*
 
@@ -73,6 +77,19 @@ FastAPI serves the built SPA + API + websocket from one origin — no CORS/cross
 - **Render:** push to GitHub → New Web Service → it picks up `render.yaml` (Docker). Set the
   secret env vars in the dashboard. The 1 GB disk persists the SQLite proof ledger across
   redeploys (drop the `disk:` block on the free tier — SQLite just resets on redeploy).
+
+## Webhooks — two-way replies + real attribution
+Outbound messages carry a tracked `/r/{token}` link; a click is logged as real engagement
+and 302-redirects on. Inbound replies are read against cross-channel memory and answered by
+the agent. Point each provider at the deployed base URL:
+
+| Provider | Where to set it | URL |
+|---|---|---|
+| **Telegram** | `setWebhook` API | `…/api/webhooks/telegram` |
+| **Twilio** | number → *A message comes in* (SMS + WhatsApp sandbox) | `…/api/webhooks/twilio` |
+| **Slack** | app → *Event Subscriptions* (subscribe `message.channels`) | `…/api/webhooks/slack` |
+| **Slack buttons** | app → *Interactivity* → Request URL | `…/api/slack/interact` |
+| **Resend** | dashboard → *Webhooks* (`email.opened`, `email.clicked`) | `…/api/webhooks/resend` |
 
 ## MCP
 `python backend/mcp_server.py` exposes the same tool registry over the Model Context
