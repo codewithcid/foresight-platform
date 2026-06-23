@@ -33,7 +33,7 @@ const STAGES: Stage[] = [
 ];
 
 export default function RoiLoop() {
-  const go = useNav();
+  const { go } = useNav();
   return (
     <div className="rounded-xl ring-1 ring-foreground/10 bg-card p-4 mb-5">
       <div className="flex items-center justify-between mb-3">

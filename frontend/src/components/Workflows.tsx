@@ -5,6 +5,7 @@ import {
   rejectRun, startWorkflow,
 } from "../api";
 import { Badge, Card, CardContent, CardDescription, CardHeader, CardHeaderRow, CardTitle } from "../ui/dash";
+import { useNav } from "../nav";
 
 const STATUS_STYLE: Record<string, { ring: string; dot: string; text: string }> = {
   pending: { ring: "ring-foreground/10", dot: "bg-muted-foreground/40", text: "text-muted-foreground" },
@@ -61,13 +62,28 @@ export default function Workflows() {
   const [steps, setSteps] = useState<RunStep[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
   const [busy, setBusy] = useState(false);
+  const [carried, setCarried] = useState<{ copy?: string; from?: string }>({});
   const runIdRef = useRef<number | null>(null);
+  const { handoff, clearHandoff } = useNav();
+
+  // A surface handed us a prefilled campaign (e.g. Creative Pre-Flight's winner).
+  useEffect(() => {
+    if (!handoff) return;
+    setForm((f) => ({
+      ...f, workflow: "",
+      segment: handoff.segment || f.segment,
+      intervention: handoff.intervention || f.intervention,
+      channel: handoff.channel || f.channel,
+    }));
+    if (handoff.copy) setCarried({ copy: handoff.copy, from: handoff.from });
+    clearHandoff();
+  }, [handoff]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     getWorkflowMeta().then((m) => {
       setMeta(m);
       const t = m.templates[0];
-      if (t) setForm({ workflow: t.id, segment: t.segment, intervention: t.intervention, channel: t.channel, test_recipient: "" });
+      if (t && !handoff) setForm({ workflow: t.id, segment: t.segment, intervention: t.intervention, channel: t.channel, test_recipient: "" });
     });
     refreshRuns();
     const ws = connectFeed((p) => {
@@ -82,14 +98,14 @@ export default function Workflows() {
 
   function pickTemplate(id: string) {
     const t = meta?.templates.find((x) => x.id === id);
-    if (t) setForm({ workflow: t.id, segment: t.segment, intervention: t.intervention, channel: t.channel, test_recipient: form.test_recipient });
+    if (t) { setForm({ workflow: t.id, segment: t.segment, intervention: t.intervention, channel: t.channel, test_recipient: form.test_recipient }); setCarried({}); }
   }
 
   async function launch() {
     if (!form.segment || !form.intervention) return;
     setBusy(true); setSteps([]); setRun(null);
     try {
-      const r = await startWorkflow(form);
+      const r = await startWorkflow({ ...form, copy: carried.copy, angle: carried.copy ? "approved" : undefined });
       runIdRef.current = r.id;
       setRun(r); setSteps(r.steps);
       refreshRuns();
@@ -159,7 +175,7 @@ export default function Workflows() {
             </label>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <button onClick={launch} disabled={busy}
               className="px-5 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-40 hover:opacity-90 transition">
               {busy ? "Running…" : "Run workflow"}
@@ -168,6 +184,14 @@ export default function Workflows() {
               Channel <b className="text-card-foreground/80">{form.channel}</b> {channelLive ? "· live" : "· not connected (proof still runs)"}
             </span>
           </div>
+          {carried.copy && (
+            <div className="rounded-lg ring-1 ring-success/40 bg-success/[0.08] p-3 text-xs">
+              <div className="flex items-center gap-1.5 text-success font-semibold mb-1">
+                <i className="ri-magic-line" /> Creative carried from {carried.from || "Pre-Flight"} — this run skips generation and ships it.
+              </div>
+              <span className="text-muted-foreground italic">"{carried.copy}"</span>
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -278,7 +278,7 @@ export async function getRun(id: number): Promise<Run> {
 }
 export async function startWorkflow(params: {
   workflow?: string; segment: string; intervention: string; channel: string;
-  budget?: number; test_recipient?: string; label?: string;
+  budget?: number; test_recipient?: string; label?: string; copy?: string; angle?: string;
 }): Promise<Run> {
   return fetch(`${BASE}/api/workflows/run`, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(params),
