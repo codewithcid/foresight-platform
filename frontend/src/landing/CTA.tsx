@@ -9,7 +9,7 @@ export default function CTA({ onLaunch }: { onLaunch: () => void }) {
           <span className="text-[#FFB600]">Start anticipating.</span>
         </h2>
         <p data-reveal className="text-white/60 text-lg max-w-[44ch] mx-auto mt-7">
-          See the live platform — six working surfaces, one proof spine.
+          See the live platform — one causal engine, real cross-channel delivery, one proof spine.
         </p>
         <div data-reveal className="mt-10">
           <button
