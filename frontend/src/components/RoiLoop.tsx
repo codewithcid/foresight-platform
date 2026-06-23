@@ -2,6 +2,7 @@ import type { Tab } from "./Sidebar";
 import { useNav } from "../nav";
 
 type Stage = {
+  step: number;
   phase: "Anticipate" | "Activate" | "Prove" | "Learn";
   title: string;
   tab: Tab;
@@ -9,68 +10,74 @@ type Stage = {
   icon: string;
 };
 
-const PHASE_COLOR: Record<Stage["phase"], string> = {
-  Anticipate: "text-violet-500",
-  Activate: "text-amber-500 dark:text-amber-400",
-  Prove: "text-success",
-  Learn: "text-sky-400",
+const PHASE: Record<Stage["phase"], string> = {
+  Anticipate: "text-violet-500 bg-violet-500/10",
+  Activate: "text-amber-500 dark:text-amber-400 bg-amber-400/10",
+  Prove: "text-success bg-success/10",
+  Learn: "text-sky-400 bg-sky-400/10",
 };
 
 // The closed loop: every surface is one stage of "predict ROI → act → prove → learn".
 const STAGES: Stage[] = [
-  { phase: "Anticipate", title: "Audience & Uplift", tab: "byocsv", icon: "ri-database-2-line",
-    role: "Causal model scores each customer's incremental ROI (CATE)." },
-  { phase: "Anticipate", title: "Spend Planner", tab: "planner", icon: "ri-pie-chart-2-line",
-    role: "Allocates budget to the highest-predicted-ROI segments." },
-  { phase: "Activate", title: "Creative Pre-Flight", tab: "creative", icon: "ri-magic-line",
-    role: "Pre-tests which message lifts ROI most, before spend." },
-  { phase: "Activate", title: "Workflows + Channels", tab: "workflows", icon: "ri-flow-chart",
-    role: "Delivers the ROI-maximizing action on real channels." },
-  { phase: "Prove", title: "Proof", tab: "proof", icon: "ri-checkbox-circle-line",
-    role: "Measures actual vs. predicted ROI on every campaign." },
-  { phase: "Learn", title: "Command", tab: "dashboard", icon: "ri-pulse-line",
-    role: "Self-correction feeds the gap back to recalibrate predictions." },
+  { step: 1, phase: "Anticipate", title: "Audience & Uplift", tab: "byocsv", icon: "ri-database-2-line",
+    role: "Scores each customer's incremental ROI (CATE)." },
+  { step: 2, phase: "Anticipate", title: "Spend Planner", tab: "planner", icon: "ri-pie-chart-2-line",
+    role: "Allocates budget to the highest-ROI segments." },
+  { step: 3, phase: "Activate", title: "Creative Pre-Flight", tab: "creative", icon: "ri-magic-line",
+    role: "Pre-tests which message lifts ROI most." },
+  { step: 4, phase: "Activate", title: "Workflows + Channels", tab: "workflows", icon: "ri-flow-chart",
+    role: "Delivers the ROI-maximizing action, live." },
+  { step: 5, phase: "Prove", title: "Proof", tab: "proof", icon: "ri-checkbox-circle-line",
+    role: "Measures actual vs. predicted ROI." },
+  { step: 6, phase: "Learn", title: "Command", tab: "dashboard", icon: "ri-pulse-line",
+    role: "Recalibrates predictions from results." },
 ];
 
 export default function RoiLoop() {
   const { go, startTour } = useNav();
   return (
-    <div className="rounded-xl ring-1 ring-foreground/10 bg-card p-4 mb-5">
-      <div className="flex items-center justify-between gap-3 mb-3">
-        <h2 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-          <span className="h-1.5 w-1.5 rounded-full bg-primary" /> The ROI loop — how every surface connects
-        </h2>
+    <div className="rounded-xl ring-1 ring-foreground/10 bg-card p-5 mb-6">
+      <div className="flex items-center justify-between gap-4 mb-4">
+        <div className="min-w-0">
+          <h2 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" /> The ROI loop
+          </h2>
+          <p className="text-xs text-muted-foreground/80 mt-1 hidden sm:block">
+            Predict <span className="text-muted-foreground/40">→</span> Optimize
+            <span className="text-muted-foreground/40"> → </span>Craft
+            <span className="text-muted-foreground/40"> → </span>Activate
+            <span className="text-muted-foreground/40"> → </span>Prove
+            <span className="text-muted-foreground/40"> → </span>Learn
+            <span className="text-primary"> ↺</span>
+          </p>
+        </div>
         <button
           onClick={startTour}
-          className="shrink-0 inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:opacity-90 transition"
+          className="shrink-0 inline-flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition"
         >
-          <i className="ri-play-circle-line" /> Guided tour
+          <i className="ri-play-circle-line text-sm" /> Guided tour
         </button>
       </div>
-      <div className="flex items-stretch gap-1 overflow-x-auto pb-1">
-        {STAGES.map((s, i) => (
-          <div key={s.title} className="flex items-stretch shrink-0">
-            <button
-              onClick={() => go(s.tab)}
-              className="group w-[168px] text-left rounded-lg ring-1 ring-foreground/10 bg-muted/30 hover:bg-muted/60 hover:ring-primary/40 transition-colors p-3"
-            >
-              <div className="flex items-center justify-between">
-                <span className={`text-[9px] font-bold uppercase tracking-wider ${PHASE_COLOR[s.phase]}`}>{s.phase}</span>
-                <i className={`${s.icon} text-muted-foreground group-hover:text-primary transition-colors`} />
-              </div>
-              <div className="font-grotesk font-bold text-sm mt-1 leading-tight">{s.title}</div>
-              <p className="text-[10px] text-muted-foreground leading-snug mt-1">{s.role}</p>
-            </button>
-            <div className="self-center px-1 text-muted-foreground/40">
-              <i className={i === STAGES.length - 1 ? "ri-loop-left-line text-sky-400" : "ri-arrow-right-line"} />
+
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        {STAGES.map((s) => (
+          <button
+            key={s.title}
+            onClick={() => go(s.tab)}
+            className="group flex flex-col h-full text-left rounded-lg ring-1 ring-foreground/10 bg-muted/25 hover:bg-muted/50 hover:ring-primary/40 transition-colors p-3"
+          >
+            <div className="flex items-center justify-between">
+              <span className={`text-[9px] font-bold uppercase tracking-wider rounded px-1.5 py-0.5 ${PHASE[s.phase]}`}>{s.phase}</span>
+              <span className="text-[10px] font-mono text-muted-foreground/40">{s.step}/6</span>
             </div>
-          </div>
+            <div className="flex items-center gap-2 mt-2.5">
+              <i className={`${s.icon} text-base text-muted-foreground group-hover:text-primary transition-colors`} />
+              <span className="font-grotesk font-bold text-[13px] leading-tight">{s.title}</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-snug mt-1.5">{s.role}</p>
+          </button>
         ))}
       </div>
-      <p className="text-[10px] text-muted-foreground/70 mt-2">
-        Each stage feeds the next; the loop closes when proven outcomes recalibrate the model — so the ROI
-        prediction gets sharper every cycle. The <span className="text-card-foreground/80">Agent Console</span> can drive any stage.
-      </p>
     </div>
   );
 }
