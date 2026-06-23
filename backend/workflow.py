@@ -59,6 +59,18 @@ TEMPLATES = [
         "description": "Reward loyalists with a personalized email; measure incremental lift.",
         "segment": "loyalist", "intervention": "personalized_email", "channel": "email",
     },
+    {
+        "id": "browser_telegram",
+        "label": "Browser Telegram nudge",
+        "description": "Re-engage browsers with a Telegram message; prove the lift on a holdout.",
+        "segment": "browser", "intervention": "retargeting_social", "channel": "telegram",
+    },
+    {
+        "id": "vip_slack",
+        "label": "VIP Slack broadcast",
+        "description": "Push a high-intent offer to the team Slack channel for activation.",
+        "segment": "high_intent", "intervention": "personalized_email", "channel": "slack",
+    },
 ]
 
 
@@ -207,7 +219,10 @@ class WorkflowEngine:
         delivered = False
         provider_id = ""
         err = ""
-        if ch and ch.configured() and recipient:
+        # slack/telegram have a server-side default recipient (channel / chat id),
+        # so they deliver even without an explicit test recipient.
+        has_default = st["channel_id"] in ("slack", "telegram")
+        if ch and ch.configured() and (recipient or has_default):
             res = ch.send(recipient, st["winner"]["copy"], meta={"run_id": run_id, "kind": "workflow"})
             delivered, provider_id, err = res.ok, res.provider_id, res.error
             db.log_channel(channel=ch.id, to_addr=recipient, body=st["winner"]["copy"],

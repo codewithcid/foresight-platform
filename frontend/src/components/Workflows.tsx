@@ -151,8 +151,7 @@ export default function Workflows() {
             </label>
             <label className="text-xs text-muted-foreground">Channel
               <select value={form.channel} onChange={(e) => setForm({ ...form, channel: e.target.value })} className="form-select w-full mt-1 text-sm">
-                {meta?.interventions.map((i) => i.channel).filter((c, idx, a) => a.indexOf(c) === idx).map((c) => <option key={c} value={c}>{c}</option>)}
-                {["sms", "whatsapp", "email", "slack"].map((c) => <option key={c} value={c}>{c}</option>)}
+                {["sms", "whatsapp", "email", "slack", "telegram"].map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </label>
             <label className="text-xs text-muted-foreground">Test recipient (optional)

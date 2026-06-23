@@ -17,14 +17,24 @@ function ModeBadge({ c }: { c: ChannelStatus }) {
   return <Badge tone="outline">Needs key</Badge>;
 }
 
+const INPUT: Record<string, { ph: string; hint: string; optional?: boolean }> = {
+  sms: { ph: "+916282490564", hint: "Full international format, incl. country code (+91…)." },
+  whatsapp: { ph: "+916282490564", hint: "Recipient must first text “join clothing-here” to +14155238886." },
+  email: { ph: "you@example.com", hint: "Sandbox: only your Resend account email until a domain is verified." },
+  slack: { ph: "(posts to your Slack channel)", hint: "Sends to the configured Slack channel — no address needed.", optional: true },
+  telegram: { ph: "chat id, e.g. 5575321420", hint: "Numeric chat id (message the bot first). Blank = default chat.", optional: true },
+};
+
 function ChannelCard({ c, onSent }: { c: ChannelStatus; onSent: () => void }) {
   const [to, setTo] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const enabled = c.configured;
+  const cfg = INPUT[c.id] ?? { ph: "+91XXXXXXXXXX", hint: "" };
+  const requiresInput = !cfg.optional;
 
   async function send() {
-    if (!to.trim()) return;
+    if (requiresInput && !to.trim()) return;
     setBusy(true); setResult(null);
     try {
       const r = await testChannel(c.id, to.trim());
@@ -59,22 +69,18 @@ function ChannelCard({ c, onSent }: { c: ChannelStatus; onSent: () => void }) {
                 <input
                   value={to}
                   onChange={(e) => setTo(e.target.value)}
-                  placeholder={c.kind === "email" ? "you@example.com" : "+91XXXXXXXXXX"}
+                  placeholder={cfg.ph}
                   className="form-input flex-1 text-sm"
                 />
                 <button
                   onClick={send}
-                  disabled={busy || !to.trim()}
+                  disabled={busy || (requiresInput && !to.trim())}
                   className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-40 hover:opacity-90 transition"
                 >
                   {busy ? "Sending…" : "Test"}
                 </button>
               </div>
-              {c.sandbox && (
-                <p className="text-[11px] text-muted-foreground">
-                  Twilio WhatsApp sandbox — the recipient must first join by texting the sandbox code.
-                </p>
-              )}
+              {cfg.hint && <p className="text-[11px] text-muted-foreground">{cfg.hint}</p>}
               {result && (
                 <p className={`text-xs ${result.ok ? "text-success" : "text-destructive"}`}>
                   {result.ok ? "✓ " : "✗ "}{result.msg}
