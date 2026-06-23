@@ -50,6 +50,12 @@ export default function App({ onHome }: { onHome?: () => void }) {
 
   useEffect(() => {
     getMeta().then(setMeta);
+    // First-ever visit: auto-open the guided tour once.
+    if (!localStorage.getItem("foresight-tour-seen")) {
+      localStorage.setItem("foresight-tour-seen", "1");
+      const t = setTimeout(() => setTourStep(0), 900);
+      return () => clearTimeout(t);
+    }
   }, []);
 
   return (

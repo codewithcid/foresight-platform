@@ -182,6 +182,7 @@ export default function Workflows() {
             </button>
             <span className="text-[11px] text-muted-foreground">
               Channel <b className="text-card-foreground/80">{form.channel}</b> {channelLive ? "· live" : "· not connected (proof still runs)"}
+              <span className="text-muted-foreground/60"> · first run can take ~30s (LLM warm-up)</span>
             </span>
           </div>
           {carried.copy && (

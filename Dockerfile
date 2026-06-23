@@ -19,4 +19,4 @@ COPY backend/ ./
 # the built SPA goes where main.py looks for it (C.ROOT/frontend/dist)
 COPY --from=web /app/frontend/dist /app/frontend/dist
 EXPOSE 8011
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8011}"]
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8011} --log-level warning"]
