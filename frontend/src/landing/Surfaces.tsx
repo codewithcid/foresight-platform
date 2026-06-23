@@ -7,45 +7,52 @@ import { Section, Kicker, Heading } from "./bits";
 const SURFACES = [
   {
     n: "01",
-    icon: "ri-dashboard-3-line",
-    name: "Foresight Dashboard",
-    tag: "Working model",
-    body: "Autonomous decisions live — every few seconds it evaluates a real customer, the guardrails pass, it acts, and shows predicted lift vs. the actual outcome. Drag the Time Machine to Diwali and the whole system's behaviour shifts.",
+    icon: "ri-database-2-line",
+    name: "Audience & Uplift",
+    tag: "Predict",
+    body: "The causal core: a LightGBM S-learner scores each customer's incremental ROI (CATE). Upload your own experiment CSV and it validates the uplift on a randomized holdout.",
   },
   {
     n: "02",
     icon: "ri-pie-chart-2-line",
     name: "Spend Planner",
-    tag: "Technical depth",
-    body: "Give it a budget and it allocates across segments and channels to maximise incremental revenue — beating a naive even-split by 86%, validated on a held-out control.",
+    tag: "Optimize",
+    body: "Turns per-customer ROI predictions into the budget allocation with the highest total ROI — beating a naive even-split by ~86%, proven on a held-out control.",
   },
   {
     n: "03",
-    icon: "ri-upload-cloud-2-line",
-    name: "Bring Your Own Data",
-    tag: "Scalability",
-    body: "Not just our synthetic demo — upload a real experiment CSV and it trains an uplift model on your segments, then proves it on a randomized holdout.",
+    icon: "ri-magic-line",
+    name: "Creative Pre-Flight",
+    tag: "Craft",
+    body: "Predicts which message lifts ROI most — generates ad variants, pre-tests them on a synthetic shopper panel, and ships the winner straight into a campaign.",
   },
   {
     n: "04",
-    icon: "ri-magic-line",
-    name: "Creative Pre-Flight",
-    tag: "AI integration",
-    body: "Generate ad variants, pre-test them on a synthetic shopper panel, ship the winner — and prove its resonance against a hidden ground truth.",
+    icon: "ri-flow-chart",
+    name: "Workflow Studio",
+    tag: "Activate",
+    body: "One orchestrated run: predict → guardrail → generate → pre-test → human approval → deliver on a real channel → prove. The agentic engine, with a person in the loop.",
   },
   {
     n: "05",
-    icon: "ri-store-2-line",
-    name: "Mēla — Shop",
-    tag: "Communication",
-    body: "The same agent acts inside a live storefront, personalising the journey and remembering context across the visit.",
+    icon: "ri-broadcast-line",
+    name: "Real channels",
+    tag: "Cross-channel",
+    body: "Delivers through real providers — SMS, WhatsApp, Slack, Email and Telegram — not skins. The same agent and memory act consistently across every one.",
   },
   {
     n: "06",
-    icon: "ri-whatsapp-line",
-    name: "WhatsApp",
-    tag: "Cross-channel",
-    body: "It carries the customer relationship into messaging — acting and remembering across channels, unprompted.",
+    icon: "ri-checkbox-circle-line",
+    name: "Proof",
+    tag: "Prove & learn",
+    body: "Every campaign validated predicted-vs-actual ROI and persisted to an audit trail — then proven outcomes recalibrate the model so the next prediction is sharper.",
+  },
+  {
+    n: "07",
+    icon: "ri-robot-2-line",
+    name: "Agent Console",
+    tag: "Operate",
+    body: "Drive the whole loop in natural language — “launch a win-back SMS for bargain hunters” — over the same tool registry that's exposed externally via MCP.",
   },
 ];
 
@@ -59,11 +66,12 @@ export default function Surfaces() {
           </div>
           <Heading className="mt-5">
             One causal engine.<br />
-            <span className="text-[#FFB600]">Six working surfaces.</span>
+            <span className="text-[#FFB600]">The whole ROI loop.</span>
           </Heading>
         </div>
         <p data-reveal className="text-black/60 max-w-[36ch] leading-relaxed md:text-right">
-          Not slides — a live product. Each surface runs on the same model, the same proof spine.
+          Not slides — a live product. Predict → optimize → craft → activate → prove → learn, every
+          stage on the same model and the same proof spine.
         </p>
       </div>
 

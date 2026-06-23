@@ -13,7 +13,7 @@ const PILLARS = [
     name: "Activate",
     icon: "ri-flashlight-line",
     tag: "Act across channels",
-    body: "A guardrailed, multi-agent loop decides, drafts and ships autonomously — and remembers context across shop, WhatsApp and beyond.",
+    body: "A guardrailed, multi-agent loop decides, drafts and ships autonomously across real channels — SMS, WhatsApp, Slack, Email, Telegram — with a person approving the send.",
   },
   {
     step: "03",
