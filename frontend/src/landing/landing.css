@@ -1,0 +1,86 @@
+/* ============================================================
+   Foresight landing — agency-style marketing front door.
+   Self-contained: explicit light/dark colors so it renders
+   correctly regardless of the app's `.dark` class on <html>.
+   ============================================================ */
+
+.lp {
+  --brand: #ffb600;
+  --brand-deep: #e0a200;
+  --ink: #0a0a0a;
+  font-family: "Inter", system-ui, sans-serif;
+  background: #ffffff;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Giant display type (hero word + section headlines) */
+.lp .font-display {
+  font-family: "Anton", "Archivo", system-ui, sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.005em;
+  text-transform: uppercase;
+}
+.lp .font-grotesk {
+  font-family: "Archivo", "Inter", sans-serif;
+}
+
+/* Hero giant word */
+.lp .hero-word {
+  font-size: clamp(4.5rem, 19vw, 18rem);
+  line-height: 0.82;
+}
+
+/* The yellow hero panel reveals via clip-path (no layout shift) */
+.lp .hero-panel {
+  clip-path: inset(0 50% 0 0);
+  will-change: clip-path;
+}
+
+/* Bouncing down arrow */
+.lp .arrow-bounce {
+  animation: lp-bounce 1.6s ease-in-out infinite;
+}
+@keyframes lp-bounce {
+  0%   { transform: translateY(-8px); }
+  45%  { transform: translateY(2px); }
+  100% { transform: translateY(-8px); }
+}
+
+/* Infinite marquee strip */
+.lp .marquee {
+  display: flex;
+  width: max-content;
+  animation: lp-marquee 26s linear infinite;
+}
+@keyframes lp-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* Reveal-on-scroll initial state (GSAP animates these in) */
+.lp [data-reveal] {
+  opacity: 0;
+  transform: translateY(26px);
+}
+
+/* Big outlined number motif for stats */
+.lp .stat-num {
+  font-family: "Anton", sans-serif;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+/* Surfaces swiper: trim default look, brand bullets */
+.lp .swiper { padding-bottom: 3rem !important; }
+.lp .swiper-pagination-bullet { background: #0a0a0a; opacity: 0.25; }
+.lp .swiper-pagination-bullet-active { background: var(--brand); opacity: 1; width: 22px; border-radius: 4px; }
+
+/* Underline-grow link */
+.lp .link-grow { position: relative; }
+.lp .link-grow::after {
+  content: ""; position: absolute; left: 0; bottom: -3px; height: 2px; width: 0;
+  background: var(--brand); transition: width 0.3s ease;
+}
+.lp .link-grow:hover::after { width: 100%; }

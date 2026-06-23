@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Foresight — Epsilon TeXpedition Finale</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --ink:#0a0e1a; --bg:#0b1020; --panel:#141b2e; --panel2:#1b2336;
+    --line:#283349; --txt:#e8ecf6; --muted:#94a3b8; --dim:#64748b;
+    --accent:#34e0a1; --accent2:#7c83fb; --amber:#f7cd4c;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:Inter,system-ui,sans-serif;background:radial-gradient(1200px 700px at 80% -10%,rgba(124,131,251,.18),transparent 60%),radial-gradient(900px 600px at 0% 110%,rgba(52,224,161,.14),transparent 55%),var(--bg);
+    color:var(--txt);overflow:hidden;-webkit-font-smoothing:antialiased;
+  }
+  /* progress + chrome */
+  #bar{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--accent2),var(--accent));z-index:50;transition:width .4s cubic-bezier(.22,1,.36,1)}
+  .brandmark{position:fixed;top:18px;left:26px;z-index:40;display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:-.01em;color:var(--txt);opacity:.92}
+  .brandmark .o{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:rgba(124,131,251,.16);color:var(--accent2);font-size:16px}
+  .brandmark small{color:var(--dim);font-weight:600;border-left:1px solid var(--line);padding-left:9px;margin-left:3px;font-size:11px;letter-spacing:.04em}
+  #count{position:fixed;bottom:18px;right:26px;z-index:40;color:var(--dim);font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
+  .hint{position:fixed;bottom:18px;left:26px;z-index:40;color:var(--dim);font-size:11px}
+  kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:10px;color:var(--muted)}
+
+  /* slides */
+  .deck{position:relative;height:100vh;width:100vw}
+  .slide{position:absolute;inset:0;display:none;flex-direction:column;justify-content:center;
+    padding:7vh 8vw 9vh;max-width:1400px;margin:0 auto}
+  .slide.active{display:flex}
+  .slide.active .reveal{animation:rise .55s cubic-bezier(.22,1,.36,1) both}
+  .slide.active .reveal:nth-child(2){animation-delay:.06s}
+  .slide.active .reveal:nth-child(3){animation-delay:.12s}
+  .slide.active .reveal:nth-child(4){animation-delay:.18s}
+  .slide.active .reveal:nth-child(5){animation-delay:.24s}
+  @keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+
+  .kicker{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2)}
+  .kicker .dot{width:7px;height:7px;border-radius:50%;background:var(--accent2);box-shadow:0 0 0 4px rgba(124,131,251,.18)}
+  h1{font-size:clamp(40px,7vw,92px);font-weight:900;letter-spacing:-.03em;line-height:.98}
+  h2{font-size:clamp(28px,4.4vw,52px);font-weight:800;letter-spacing:-.02em;line-height:1.05}
+  .grad{background:linear-gradient(90deg,var(--accent2),var(--accent));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lead{color:var(--muted);font-size:clamp(16px,1.7vw,21px);line-height:1.5;max-width:60ch}
+  .tag{color:var(--dim);font-weight:600;letter-spacing:.22em;text-transform:uppercase;font-size:14px}
+
+  .footer{position:absolute;left:8vw;bottom:5.5vh;display:flex;align-items:center;gap:12px}
+  .pill{font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--accent);background:rgba(52,224,161,.1);border:1px solid rgba(52,224,161,.3);padding:5px 12px;border-radius:999px}
+  .pill.v{color:var(--accent2);background:rgba(124,131,251,.1);border-color:rgba(124,131,251,.3)}
+  .seclabel{color:var(--dim);font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase}
+
+  /* team */
+  .people{display:grid;grid-template-columns:1fr 1fr;gap:26px;max-width:780px}
+  .person{display:flex;align-items:center;gap:18px;background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:18px;padding:18px 20px}
+  .photo{width:96px;height:96px;border-radius:16px;object-fit:cover;flex:0 0 auto;border:2px solid rgba(124,131,251,.35);background:var(--panel2)}
+  .avatar-fallback{width:96px;height:96px;border-radius:16px;flex:0 0 auto;display:grid;place-items:center;font-weight:800;font-size:30px;color:var(--accent2);background:rgba(124,131,251,.14);border:2px solid rgba(124,131,251,.35)}
+  .person .nm{font-size:22px;font-weight:800;letter-spacing:-.01em}
+  .person .role{color:var(--accent);font-size:13px;font-weight:600;margin-top:2px}
+  .person .sub{color:var(--dim);font-size:12px;margin-top:5px;font-family:ui-monospace,monospace}
+
+  /* generic grids */
+  .cards{display:grid;gap:14px;margin-top:6px}
+  .cards.c2{grid-template-columns:1fr 1fr}
+  .cards.c3{grid-template-columns:repeat(3,1fr)}
+  .card{background:linear-gradient(180deg,var(--panel),rgba(20,27,46,.6));border:1px solid var(--line);border-radius:16px;padding:18px 20px}
+  .card h3{font-size:17px;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:9px}
+  .card p{color:var(--muted);font-size:14px;line-height:1.45;margin-top:6px}
+  .ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:0 0 auto;font-size:15px}
+  .ic.g{background:rgba(52,224,161,.14);color:var(--accent)}
+  .ic.v{background:rgba(124,131,251,.16);color:var(--accent2)}
+  .ic.a{background:rgba(247,205,76,.16);color:var(--amber)}
+  .chip{font-size:11px;font-weight:600;color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:2px 9px;margin-left:auto}
+
+  ul.pain{margin-top:18px;display:grid;gap:13px;max-width:64ch}
+  ul.pain li{list-style:none;display:flex;gap:13px;align-items:flex-start;font-size:clamp(15px,1.6vw,19px);color:var(--txt)}
+  ul.pain li b{color:#fff}
+  ul.pain .x{color:var(--accent2);font-weight:900;flex:0 0 auto}
+  ul.pain li span.d{color:var(--muted)}
+
+  .thesis{margin-top:22px;font-size:clamp(17px,1.9vw,23px);font-weight:600;color:#fff;border-left:3px solid var(--accent);padding-left:16px;line-height:1.4;max-width:64ch}
+
+  .pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:8px}
+  .pillar{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:18px;padding:22px}
+  .pillar .step{font-size:12px;font-weight:800;letter-spacing:.18em;text-transform:uppercase}
+  .pillar:nth-child(1) .step{color:var(--accent2)} .pillar:nth-child(2) .step{color:var(--amber)} .pillar:nth-child(3) .step{color:var(--accent)}
+  .pillar .big{font-size:24px;font-weight:800;margin-top:8px;letter-spacing:-.01em}
+  .pillar p{color:var(--muted);font-size:13.5px;line-height:1.45;margin-top:8px}
+
+  .demo-row{display:flex;align-items:center;gap:14px;padding:13px 16px;border:1px solid var(--line);border-radius:13px;background:rgba(20,27,46,.5)}
+  .demo-row .n{width:26px;height:26px;border-radius:8px;background:rgba(124,131,251,.16);color:var(--accent2);display:grid;place-items:center;font-weight:800;font-size:13px;flex:0 0 auto}
+  .demo-row .t{font-weight:700;font-size:15px}
+  .demo-row .t span{color:var(--muted);font-weight:400}
+  .demo-row .dim{font-size:11px;font-weight:700;color:var(--accent);background:rgba(52,224,161,.1);border:1px solid rgba(52,224,161,.28);padding:3px 9px;border-radius:999px;margin-left:auto;white-space:nowrap}
+
+  .close-cta{font-size:clamp(20px,2.4vw,30px);font-weight:800;letter-spacing:-.01em;margin-top:24px}
+  .close-cta .grad{font-weight:900}
+  .endrow{display:flex;align-items:center;gap:18px;margin-top:26px;color:var(--dim);font-size:13px;font-family:ui-monospace,monospace}
+  .endrow b{color:var(--muted)}
+</style>
+</head>
+<body>
+<div id="bar"></div>
+<div class="brandmark"><span class="o">◎</span> Foresight <small>ANTICIPATE · ACTIVATE · PROVE</small></div>
+
+<div class="deck" id="deck">
+
+  <!-- 1 · TEAM INTRODUCTION (30s) -->
+  <section class="slide active">
+    <div class="reveal kicker"><span class="dot"></span> Epsilon TeXpedition · Grand Finale · Theme 2</div>
+    <h1 class="reveal" style="margin-top:18px"><span class="grad">Foresight</span></h1>
+    <p class="reveal tag" style="margin-top:14px">Anticipate · Activate · Prove</p>
+    <div class="reveal people" style="margin-top:40px">
+      <div class="person">
+        <img class="photo" src="assets/sidhardh.png" alt="Sidhardh" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'">
+        <div class="avatar-fallback" style="display:none">SS</div>
+        <div>
+          <div class="nm">Sidhardh S</div>
+          <div class="role">Team Lead · AI / ML &amp; Full-Stack</div>
+          <div class="sub">github.com/codewithcid</div>
+        </div>
+      </div>
+      <div class="person">
+        <img class="photo" src="assets/rochit.png" alt="Rochit" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'">
+        <div class="avatar-fallback" style="display:none">R</div>
+        <div>
+          <div class="nm">Rochit</div>
+          <div class="role">Co-builder · Backend &amp; Systems</div>
+          <div class="sub">Foresight · finals build</div>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><span class="seclabel">Team Introduction</span><span class="pill v">0:30</span></div>
+  </section>
+
+  <!-- 2 · PROBLEM STATEMENT (30s) -->
+  <section class="slide">
+    <div class="reveal kicker"><span class="dot"></span> The Problem</div>
+    <h2 class="reveal" style="margin-top:16px;max-width:20ch">Marketing <span class="grad">reacts</span>. It rarely anticipates — and almost never <span class="grad">proves</span> what worked.</h2>
+    <ul class="pain reveal">
+      <li><span class="x">→</span><span><b>Siloed channels.</b> <span class="d">A customer is one person, but email, SMS, app and web each act blind to the others.</span></span></li>
+      <li><span class="x">→</span><span><b>Spend by gut, not causal impact.</b> <span class="d">Budgets chase last-click attribution, not who a message will actually move.</span></span></li>
+      <li><span class="x">→</span><span><b>"Success" = vanity metrics.</b> <span class="d">Opens and clicks — not proven incremental revenue.</span></span></li>
+    </ul>
+    <p class="thesis reveal">Theme 2 asks for seamless cross-channel experiences <i>with clear measures of success.</i> Foresight is an agent that <b>anticipates</b>, <b>acts across channels</b>, and <b>proves its impact — in rupees.</b></p>
+    <div class="footer"><span class="seclabel">Problem Statement</span><span class="pill v">0:30</span></div>
+  </section>
+
+  <!-- 3 · PROTOTYPE DEMO — DEMO MAP (part of 1:30) -->
+  <section class="slide">
+    <div class="reveal kicker"><span class="dot"></span> Live Prototype · what you'll see</div>
+    <h2 class="reveal" style="margin-top:14px">One causal engine. <span class="grad">Six working surfaces.</span></h2>
+    <div class="cards reveal" style="margin-top:22px;gap:11px">
+      <div class="demo-row"><span class="n">1</span><div class="t">Foresight Dashboard <span>— autonomous decisions live, predicted-vs-actual proof, the Time Machine</span></div><span class="dim">working model</span></div>
+      <div class="demo-row"><span class="n">2</span><div class="t">Spend Planner <span>— budget → causal-optimal allocation, +86% vs. naive, incrementality proof</span></div><span class="dim">technical depth</span></div>
+      <div class="demo-row"><span class="n">3</span><div class="t">Bring Your Own Data <span>— upload a real CSV, train an uplift model, validate on a holdout</span></div><span class="dim">scalability</span></div>
+      <div class="demo-row"><span class="n">4</span><div class="t">Creative Pre-Flight <span>— generate → pre-test on a synthetic panel → ship the winner → prove it</span></div><span class="dim">AI integration</span></div>
+      <div class="demo-row"><span class="n">5</span><div class="t">Mēla Shop + WhatsApp <span>— the agent acts and remembers across channels, unprompted</span></div><span class="dim">communication</span></div>
+    </div>
+    <div class="footer"><span class="seclabel">Prototype Demonstration</span><span class="pill">1:30</span></div>
+  </section>
+
+  <!-- 4 · PROTOTYPE DEMO — UNDER THE HOOD (part of 1:30) -->
+  <section class="slide">
+    <div class="reveal kicker"><span class="dot"></span> Under the hood</div>
+    <h2 class="reveal" style="margin-top:14px">Real ML. Real agents. <span class="grad">Real proof.</span></h2>
+    <div class="cards c2 reveal" style="margin-top:22px">
+      <div class="card"><h3><span class="ic g">∿</span> Causal core <span class="chip">the proof spine</span></h3><p>LightGBM <b>S-learner</b> estimates each customer's treatment effect (CATE). Every prediction is checked against the actual outcome — live calibration, not a one-off score.</p></div>
+      <div class="card"><h3><span class="ic v">◇</span> Agentic loop</h3><p><b>Strategist → Guardrail → Execution → Critic</b>, with a Thompson-sampling contextual bandit and a self-correcting policy that learns per segment.</p></div>
+      <div class="card"><h3><span class="ic a">✦</span> AI integration</h3><p>NVIDIA NIM model pool (Qwen3-80B · Llama-3.3-70B · GPT-OSS / Nemotron-120B) with Groq fallback; keyless image generation; a tool-calling Supervisor exposed over <b>MCP</b>.</p></div>
+      <div class="card"><h3><span class="ic g">⤢</span> Stack &amp; scale</h3><p>FastAPI + React/Vite/TS over websockets. Plans project to a 5-lakh addressable base — and the <b>same engine runs on any uploaded dataset</b>.</p></div>
+    </div>
+    <div class="footer"><span class="seclabel">Prototype Demonstration</span><span class="pill">1:30</span></div>
+  </section>
+
+  <!-- 5 · CLOSING & SUMMARY (30s) -->
+  <section class="slide">
+    <div class="reveal kicker"><span class="dot"></span> Closing</div>
+    <h2 class="reveal" style="margin-top:14px">Three words, <span class="grad">measured at every step.</span></h2>
+    <div class="pillars reveal" style="margin-top:24px">
+      <div class="pillar"><div class="step">Anticipate</div><div class="big">See the lift first</div><p>Per-customer causal forecasting — who a message will actually move, before a rupee is spent.</p></div>
+      <div class="pillar"><div class="step">Activate</div><div class="big">Act across channels</div><p>An autonomous, guardrailed agent that decides, drafts, and ships — and remembers context across surfaces.</p></div>
+      <div class="pillar"><div class="step">Prove</div><div class="big">Predicted vs. actual</div><p>Incrementality at every level: intervention → portfolio → creative → your own data. That's the clear measure of success.</p></div>
+    </div>
+    <div class="close-cta reveal">Foresight doesn't just personalize — <span class="grad">it proves it worked.</span></div>
+    <div class="endrow reveal"><b>Thank you</b> · Team Foresight · github.com/codewithcid/foresight</div>
+    <div class="footer"><span class="seclabel">Closing &amp; Summary</span><span class="pill v">0:30</span></div>
+  </section>
+
+</div>
+
+<div id="count">1 / 5</div>
+<div class="hint">Navigate <kbd>←</kbd> <kbd>→</kbd> · <kbd>F</kbd> fullscreen</div>
+
+<script>
+  const slides=[...document.querySelectorAll('.slide')];
+  let i=0;
+  function show(n){
+    i=Math.max(0,Math.min(slides.length-1,n));
+    slides.forEach((s,k)=>s.classList.toggle('active',k===i));
+    document.getElementById('count').textContent=(i+1)+' / '+slides.length;
+    document.getElementById('bar').style.width=((i+1)/slides.length*100)+'%';
+  }
+  function next(){show(i+1)} function prev(){show(i-1)}
+  document.addEventListener('keydown',e=>{
+    if(['ArrowRight','ArrowDown',' ','PageDown'].includes(e.key)){e.preventDefault();next()}
+    else if(['ArrowLeft','ArrowUp','PageUp'].includes(e.key)){e.preventDefault();prev()}
+    else if(e.key==='Home'){show(0)} else if(e.key==='End'){show(slides.length-1)}
+    else if(e.key==='f'||e.key==='F'){ if(!document.fullscreenElement)document.documentElement.requestFullscreen?.(); else document.exitFullscreen?.(); }
+  });
+  document.getElementById('deck').addEventListener('click',e=>{ if(e.clientX < window.innerWidth*0.25) prev(); else next(); });
+  show(0);
+</script>
+</body>
+</html>

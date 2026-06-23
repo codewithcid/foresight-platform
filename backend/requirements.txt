@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+lightgbm
+scikit-learn
+numpy
+pandas
+pydantic
+python-dotenv
+requests
+websockets
+mcp
