@@ -11,3 +11,7 @@ __pycache__/
 backend/*.db
 backend/_*.log
 frontend/_*.log
+
+# local sqlite
+backend/foresight.db
+backend/foresight.db-*

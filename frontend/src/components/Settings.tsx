@@ -1,8 +1,62 @@
 import { useEffect, useState } from "react";
-import { Connection, SettingsData, getSettings, saveSettings, setMode } from "../api";
+import { AdminBot, Connection, SettingsData, getSettings, saveSettings, setMode } from "../api";
 import { Badge, Card, CardContent, CardDescription, CardHeader, CardHeaderRow, CardTitle, IconChip } from "../ui/dash";
 
 const inr = (x: number) => "₹" + Math.round(x).toLocaleString("en-IN");
+
+function AdminBotCard({ bot, onSaved }: { bot: AdminBot; onSaved: () => void }) {
+  const [base, setBase] = useState(bot.wati_base || "");
+  const [token, setToken] = useState("");
+  const [admins, setAdmins] = useState(bot.admins || "");
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const connected = !!bot.wati_token_set && !!bot.wati_base;
+
+  async function save() {
+    const updates: Record<string, string> = {};
+    if (base.trim()) updates.WATI_BASE_URL = base.trim();
+    if (token.trim() && !token.includes("•")) updates.WATI_ACCESS_TOKEN = token.trim();
+    updates.ADMIN_WHATSAPP_NUMBERS = admins.trim();
+    setBusy(true);
+    try { await saveSettings(updates); setToken(""); onSaved(); } finally { setBusy(false); }
+  }
+
+  return (
+    <Card>
+      <CardHeaderRow>
+        <div>
+          <CardTitle className="text-sm flex items-center gap-2"><i className="ri-whatsapp-line text-success" /> Admin WhatsApp bot (Wati)</CardTitle>
+          <CardDescription className="text-xs">Chat with Foresight over WhatsApp — admins only. Reads live data and acts with confirmation.</CardDescription>
+        </div>
+        <Badge tone={connected ? "success" : "warning"}>{connected ? "Connected" : "Needs setup"}</Badge>
+      </CardHeaderRow>
+      <CardContent className="flex flex-col gap-3">
+        <label className="text-[11px] text-muted-foreground">Wati API endpoint (from Wati → API Docs)
+          <input value={base} onChange={(e) => setBase(e.target.value)} placeholder="https://live-mt-server.wati.io/123456" className="form-input w-full mt-1 text-sm font-mono" />
+        </label>
+        <label className="text-[11px] text-muted-foreground">Wati access token
+          <input value={token} onChange={(e) => setToken(e.target.value)} type="password"
+            placeholder={bot.wati_token_set ? bot.wati_token_masked : "paste your Wati token"} className="form-input w-full mt-1 text-sm font-mono" />
+        </label>
+        <label className="text-[11px] text-muted-foreground">Admin WhatsApp numbers <span className="text-muted-foreground/60">— comma-separated, E.164</span>
+          <input value={admins} onChange={(e) => setAdmins(e.target.value)} placeholder="+9162…, +9198…" className="form-input w-full mt-1 text-sm" />
+        </label>
+        <div>
+          <div className="text-[11px] text-muted-foreground mb-1">Webhook URL — paste this in Wati → Webhooks (event: message received)</div>
+          <div className="flex gap-2">
+            <code className="flex-1 truncate rounded-md bg-muted/40 ring-1 ring-foreground/10 px-3 py-1.5 text-xs font-mono">{bot.webhook_url}</code>
+            <button onClick={() => { navigator.clipboard?.writeText(bot.webhook_url); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+              className="px-3 rounded-md ring-1 ring-foreground/15 text-xs hover:bg-muted/50">{copied ? "Copied" : "Copy"}</button>
+          </div>
+        </div>
+        <button onClick={save} disabled={busy}
+          className="w-fit px-4 py-2 rounded-md bg-primary text-primary-foreground text-xs font-semibold disabled:opacity-40 hover:opacity-90 transition">
+          {busy ? "Saving…" : "Save"}
+        </button>
+      </CardContent>
+    </Card>
+  );
+}
 
 function ModeBadge({ mode }: { mode: string }) {
   return mode === "live"
@@ -121,6 +175,9 @@ export default function Settings() {
           {data.connections.map((c) => <ConnectionCard key={c.id} c={c} onSaved={refresh} />)}
         </div>
       </div>
+
+      {/* Admin WhatsApp bot */}
+      {data.admin_bot && <AdminBotCard bot={data.admin_bot} onSaved={refresh} />}
 
       {/* Operating limits */}
       <Card>

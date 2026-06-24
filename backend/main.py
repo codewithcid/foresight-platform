@@ -44,6 +44,8 @@ import seed
 import store as store_mod
 import supervisor
 import tracking
+import wati
+import whatsapp_admin
 import workflow as workflow_mod
 from agent import AgentLoop
 from bandit import ThompsonBandit
@@ -691,6 +693,13 @@ def _settings_payload() -> dict:
             "daily_budget": C.DAILY_BUDGET_USD,
             "min_lift_pct": round(C.MIN_REL_LIFT_TO_ACT * 100, 1),
         },
+        "admin_bot": {
+            "wati_base": appconfig.get("WATI_BASE_URL", "") or "",
+            "wati_token_set": appconfig.is_set("WATI_ACCESS_TOKEN"),
+            "wati_token_masked": appconfig.masked("WATI_ACCESS_TOKEN"),
+            "admins": appconfig.get("ADMIN_WHATSAPP_NUMBERS", "") or "",
+            "webhook_url": tracking.PUBLIC_BASE + "/api/webhooks/wati",
+        },
     }
 
 
@@ -818,6 +827,32 @@ async def store_nudge(req: NudgeRequest):
 @app.post("/api/store/reset")
 def store_reset():
     return STATE["store"].reset()
+
+
+# ------------------------------------------------- admin WhatsApp bot (Wati)
+@app.get("/api/webhooks/wati")
+def wati_verify():
+    return {"ok": True}
+
+
+@app.post("/api/webhooks/wati")
+async def wati_webhook(request: Request):
+    try:
+        data = await request.json()
+    except Exception:
+        form = await request.form()
+        data = dict(form)
+    wa_id = str(data.get("waId") or data.get("waid") or data.get("phone") or "")
+    text = str(data.get("text") or data.get("messageText") or "").strip()
+    owner = str(data.get("owner")).lower() in ("true", "1")  # owner=true => our own outbound (echo)
+    if owner or not text or not wa_id:
+        return {"ok": True, "ignored": True}
+    if not whatsapp_admin.is_admin(wa_id):
+        wati.send_session_message(wa_id, "⛔ This Foresight admin assistant is restricted to authorized numbers.")
+        return {"ok": True, "unauthorized": True}
+    reply = await asyncio.to_thread(whatsapp_admin.handle, STATE, wa_id, text)
+    ok, err = wati.send_session_message(wa_id, reply)
+    return {"ok": True, "reply": reply, "delivered": ok, "error": err or None}
 
 
 # ------------------------------------------------------------------- sim ctl
