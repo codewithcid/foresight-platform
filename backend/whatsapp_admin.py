@@ -33,6 +33,7 @@ SYSTEM = (
     "invent numbers. When the admin asks you to DO something (launch a campaign, approve/reject a run, "
     "send a message or discount nudge, switch sandbox/live), call the matching action tool; it will be "
     "shown to the admin for a YES confirmation before it actually runs, so just call it. "
+    "All monetary amounts are in Indian Rupees — always write ₹, never $. "
     "Reply for WhatsApp: short, scannable, *bold* for key numbers, line breaks between points, minimal emoji."
 )
 
