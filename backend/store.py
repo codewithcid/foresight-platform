@@ -299,6 +299,10 @@ class StoreEngine:
         await self._recover(cart, 0)
         return db.cart_get(cart_id)
 
+    def reset(self) -> dict:
+        db.clear_store()
+        return self.state()
+
     # --------------------------------------------------------------- state
     def state(self) -> dict:
         carts = db.carts_list(80)

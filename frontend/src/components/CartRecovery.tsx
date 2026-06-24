@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { StoreCart, StoreConfig, StoreState, connectFeed, getStoreConfig, getStoreState, sendNudge, setStoreConfig, simulateCart } from "../api";
+import { StoreCart, StoreConfig, StoreState, connectFeed, getStoreConfig, getStoreState, resetStore, sendNudge, setStoreConfig, simulateCart } from "../api";
 import { Badge, Card, CardContent, CardDescription, CardHeader, CardHeaderRow, CardTitle, MetricCard } from "../ui/dash";
 import { Bag, Bolt, CheckDouble, Rupee, Target } from "./Icons";
 
@@ -61,6 +61,7 @@ export default function CartRecovery() {
     } catch { setNres("Couldn’t send — check the number / WhatsApp setup."); }
     finally { setNbusy(false); }
   }
+  async function reset() { if (confirm("Clear all carts and recovery history? (demo reset)")) { await resetStore(); setLog([]); refresh(); } }
   function copy(text: string, what: string) { navigator.clipboard?.writeText(text); setCopied(what); setTimeout(() => setCopied(""), 1500); }
   async function saveUrl() { if (cfg && urlDraft && urlDraft !== cfg.store_url) setCfg(await setStoreConfig({ store_url: urlDraft })); }
   async function regen() { setCfg(await setStoreConfig({ regenerate_key: true })); }
@@ -76,10 +77,13 @@ export default function CartRecovery() {
           budget-safe discount, sends a WhatsApp deep-link back to the cart, then proves whether the
           push actually recovered the sale — escalating the offer only if it pays off.
         </p>
-        <button onClick={simulate} disabled={busy}
-          className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-40 hover:opacity-90 transition">
-          <Bolt size={15} /> {busy ? "Simulating…" : "Simulate abandoned cart"}
-        </button>
+        <div className="shrink-0 flex items-center gap-2">
+          <button onClick={reset} className="text-xs text-muted-foreground hover:text-destructive px-2 py-2">Reset demo</button>
+          <button onClick={simulate} disabled={busy}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-40 hover:opacity-90 transition">
+            <Bolt size={15} /> {busy ? "Simulating…" : "Simulate abandoned cart"}
+          </button>
+        </div>
       </div>
 
       {/* KPIs */}

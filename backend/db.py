@@ -414,6 +414,16 @@ def discounts_issued_since(ts: float) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def clear_store() -> None:
+    """Wipe cart-recovery state (carts, codes, and its proof rows) for a clean demo."""
+    with _LOCK:
+        c = conn()
+        c.execute("DELETE FROM carts")
+        c.execute("DELETE FROM discount_codes")
+        c.execute("DELETE FROM proof_entries WHERE source = 'cart_recovery'")
+        c.commit()
+
+
 def engagement_summary() -> dict:
     with _LOCK:
         rows = conn().execute("SELECT kind, COUNT(*) n FROM engagement GROUP BY kind").fetchall()
