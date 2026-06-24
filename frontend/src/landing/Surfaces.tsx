@@ -42,13 +42,20 @@ const SURFACES = [
   },
   {
     n: "06",
+    icon: "ri-plug-line",
+    name: "Link-Up",
+    tag: "Integrate",
+    body: "Plug Foresight into your real app. It streams cart events; when one is abandoned the agent issues a budget-safe discount, WhatsApps a deep link back to the cart, and proves whether it recovered the sale — escalating the offer only if it pays.",
+  },
+  {
+    n: "07",
     icon: "ri-checkbox-circle-line",
     name: "Proof",
     tag: "Prove & learn",
     body: "Every campaign validated predicted-vs-actual ROI and persisted to an audit trail — then proven outcomes recalibrate the model so the next prediction is sharper.",
   },
   {
-    n: "07",
+    n: "08",
     icon: "ri-robot-2-line",
     name: "Agent Console",
     tag: "Operate",

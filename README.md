@@ -19,17 +19,19 @@ channels, and **proves the lift** predicted-vs-actual on every campaign.
 
 ---
 
-## What it does (7 surfaces)
+## What it does
 | Surface | What it is |
 |---|---|
 | **Command** | Live agent feed + KPIs (acted/held, calibration, spend, projected revenue). |
-| **Workflows** | The centerpiece. Build a campaign → Predict (CATE) → Guardrail → Generate creative → Pre-test → **human Approve** → Deliver on a real channel → **Prove**. Live node graph. |
+| **Workflows** | The centerpiece. Build a campaign → Predict (CATE) → Guardrail → Generate creative → Pre-test → **human Approve** → Deliver on a real channel → **Prove**. Live node graph, "let the Strategist decide", and Autopilot. |
+| **Link-Up** | Plug Foresight into a real app. Your store streams cart events; on abandonment the agent issues a budget-safe escalating discount, WhatsApps a deep link back to the cart, and proves whether it recovered the sale. See [STORE_INTEGRATION.md](STORE_INTEGRATION.md). |
 | **Spend Planner** | Budget → causal-optimal segment×channel allocation, beats naive even-split, with an incrementality holdout. |
 | **Audience & Uplift** | Bring-Your-Own-CSV: train an uplift model on *your* experiment, validate on a randomized holdout. |
 | **Creative Pre-Flight** | Generate ad variants → pre-test on a synthetic shopper panel → ship the winner. |
 | **Channels** | Real integrations (SMS · WhatsApp · Slack live; Email/Telegram one key away) with status + test-send + delivery log. |
 | **Proof** | The predicted-vs-actual ledger across all proven campaigns — mean error, incremental revenue. |
 | **Agent Console** | An autonomous Supervisor (NVIDIA NIM tool-calling) that can *answer and act*: "launch a win-back SMS campaign for bargain hunters." Same tools exposed over **MCP**. |
+| **Settings** | Connect channels in-app (keys stored, masked), toggle Sandbox/Live, review guardrails — behind a sign-in. |
 
 ## How it works
 - **Causal core** — a LightGBM **S-learner** estimates each customer's treatment effect
@@ -90,6 +92,11 @@ the agent. Point each provider at the deployed base URL:
 | **Slack** | app → *Event Subscriptions* (subscribe `message.channels`) | `…/api/webhooks/slack` |
 | **Slack buttons** | app → *Interactivity* → Request URL | `…/api/slack/interact` |
 | **Resend** | dashboard → *Webhooks* (`email.opened`, `email.clicked`) | `…/api/webhooks/resend` |
+
+## Link-Up — connect a real app
+A store POSTs cart events to `…/api/store/event` (auth header `X-Foresight-Key`); Foresight
+recovers abandoned carts and validates discount codes at `…/api/discount/validate`. Full
+store-side contract + drop-in JS: **[STORE_INTEGRATION.md](STORE_INTEGRATION.md)**.
 
 ## MCP
 `python backend/mcp_server.py` exposes the same tool registry over the Model Context

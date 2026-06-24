@@ -27,9 +27,11 @@ const STAGES: Stage[] = [
     role: "Pre-tests which message lifts ROI most." },
   { step: 4, phase: "Activate", title: "Workflows + Channels", tab: "workflows", icon: "ri-flow-chart",
     role: "Delivers the ROI-maximizing action, live." },
-  { step: 5, phase: "Prove", title: "Proof", tab: "proof", icon: "ri-checkbox-circle-line",
+  { step: 5, phase: "Activate", title: "Link-Up", tab: "store", icon: "ri-plug-line",
+    role: "Recovers abandoned carts on your live app." },
+  { step: 6, phase: "Prove", title: "Proof", tab: "proof", icon: "ri-checkbox-circle-line",
     role: "Measures actual vs. predicted ROI." },
-  { step: 6, phase: "Learn", title: "Command", tab: "dashboard", icon: "ri-pulse-line",
+  { step: 7, phase: "Learn", title: "Command", tab: "dashboard", icon: "ri-pulse-line",
     role: "Recalibrates predictions from results." },
 ];
 
@@ -59,7 +61,7 @@ export default function RoiLoop() {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
         {STAGES.map((s) => (
           <button
             key={s.title}
@@ -68,7 +70,7 @@ export default function RoiLoop() {
           >
             <div className="flex items-center justify-between">
               <span className={`text-[9px] font-bold uppercase tracking-wider rounded px-1.5 py-0.5 ${PHASE[s.phase]}`}>{s.phase}</span>
-              <span className="text-[10px] font-mono text-muted-foreground/40">{s.step}/6</span>
+              <span className="text-[10px] font-mono text-muted-foreground/40">{s.step}/{STAGES.length}</span>
             </div>
             <div className="flex items-center gap-2 mt-2.5">
               <i className={`${s.icon} text-base text-muted-foreground group-hover:text-primary transition-colors`} />
