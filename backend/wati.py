@@ -52,7 +52,10 @@ def send_session_message(wa_id: str, text: str) -> tuple[bool, str]:
             data = r.json()
         except ValueError:
             return True, ""
-        if data.get("result") is False or data.get("ok") is False:
-            return False, str(data)[:200]
-        return True, ""
+        msg = data.get("message") or {}
+        if msg.get("whatsappMessageId"):
+            return True, ""
+        # Wati accepted the call (result:success) but couldn't deliver — almost
+        # always because the 24h customer-initiated session isn't open.
+        return False, "no open 24h WhatsApp session — the recipient must message the business number first"
     return False, f"wati {r.status_code}: {r.text[:200]}"
