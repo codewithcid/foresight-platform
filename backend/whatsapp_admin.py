@@ -53,6 +53,20 @@ HELP = (
 # in-memory per-admin state (fine for a single-instance demo)
 _PENDING: dict[str, dict] = {}
 _HISTORY: dict[str, list] = {}
+_PROCESSED: set = set()       # message ids handled (dedupe webhook vs poller)
+_POLL_SEEN: dict[str, set] = {}  # per-admin message ids already observed
+
+
+def already(key: str) -> bool:
+    """True if this message id was already handled (then marks it)."""
+    if not key:
+        return False
+    if key in _PROCESSED:
+        return True
+    _PROCESSED.add(key)
+    if len(_PROCESSED) > 4000:
+        _PROCESSED.clear()
+    return False
 
 
 def is_admin(wa_id: str) -> bool:
@@ -219,3 +233,38 @@ def handle(ctx: dict, wa_id: str, text: str) -> str:
     if out.get("pending"):
         _PENDING[wa_id] = out["pending"]
     return reply
+
+
+async def poll_loop(ctx: dict) -> None:
+    """Inbound fallback: pull new messages from Wati and reply — no webhook needed.
+    Runs forever; no-ops until Wati is configured. On first sight of a contact it
+    marks existing messages as seen so we don't reply to history."""
+    while True:
+        await asyncio.sleep(6)
+        try:
+            if not wati.configured():
+                continue
+            raw = appconfig.get("ADMIN_WHATSAPP_NUMBERS", "") or ""
+            admins = [wati.normalize(a) for a in raw.split(",") if a.strip()]
+            for num in admins:
+                msgs = await asyncio.to_thread(wati.get_messages, num, 10)
+                ids = [str(m.get("whatsappMessageId") or m.get("id") or m.get("created")) for m in msgs]
+                first_time = num not in _POLL_SEEN
+                seen = _POLL_SEEN.setdefault(num, set())
+                if first_time:
+                    seen.update(ids)  # don't reply to pre-existing history
+                    continue
+                # oldest -> newest so multi-message bursts reply in order
+                for m in reversed(msgs):
+                    mid = str(m.get("whatsappMessageId") or m.get("id") or m.get("created"))
+                    if mid in seen:
+                        continue
+                    seen.add(mid)
+                    inbound = (not m.get("owner")) and m.get("type") == "text" and (m.get("text") or "").strip()
+                    if not inbound or already(f"wati:{mid}"):
+                        continue
+                    text = (m.get("text") or "").strip()
+                    reply = await asyncio.to_thread(handle, ctx, num, text)
+                    await asyncio.to_thread(wati.send_session_message, num, reply)
+        except Exception as e:  # noqa: BLE001 - never let the loop die
+            print("[wati] poll error:", str(e)[:120])

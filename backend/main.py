@@ -121,9 +121,12 @@ async def lifespan(app: FastAPI):
     if appconfig.get("MODE", "sandbox") != "live":
         simulator.start()  # sandbox traffic; paused in Live mode
     STATE["store"].start()  # cart-recovery sweeper (always on — it's the product)
+    STATE["wati_poller"] = asyncio.create_task(whatsapp_admin.poll_loop(STATE))  # admin-bot inbound fallback
     yield
     simulator.pause()
     STATE["store"].stop()
+    if STATE.get("wati_poller"):
+        STATE["wati_poller"].cancel()
     STATE.clear()
 
 
@@ -877,6 +880,9 @@ async def wati_webhook(request: Request):
     }
     if owner or not text or not wa_id:
         return {"ok": True, "ignored": True}
+    msg_key = str(data.get("whatsappMessageId") or data.get("id") or f"{wa_id}:{text}")
+    if whatsapp_admin.already(f"wati:{msg_key}"):  # poller may have handled it
+        return {"ok": True, "duplicate": True}
     if not whatsapp_admin.is_admin(wa_id):
         ok, err = wati.send_session_message(wa_id, "⛔ This Foresight admin assistant is restricted to authorized numbers.")
         WATI_DEBUG["outbound"] = {"ts": time.time(), "to": wa_id, "ok": ok, "error": err, "note": "unauthorized"}

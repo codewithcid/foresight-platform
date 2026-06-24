@@ -33,6 +33,25 @@ def normalize(number: str) -> str:
     return re.sub(r"\D", "", number or "")
 
 
+def get_messages(wa_id: str, page_size: int = 10) -> list[dict]:
+    """Fetch recent messages for a contact (used by the inbound poller)."""
+    if not configured():
+        return []
+    num = normalize(wa_id)
+    if not num:
+        return []
+    try:
+        r = requests.get(f"{_base()}/api/v1/getMessages/{num}", params={"pageSize": page_size},
+                         headers={"Authorization": _auth()}, timeout=15)
+        if r.status_code != 200:
+            return []
+        ms = (r.json() or {}).get("messages")
+        items = ms.get("items") if isinstance(ms, dict) else ms
+        return items or []
+    except (requests.RequestException, ValueError):
+        return []
+
+
 def send_session_message(wa_id: str, text: str) -> tuple[bool, str]:
     """Send a free-form session message. Returns (ok, error)."""
     if not configured():
