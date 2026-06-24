@@ -52,7 +52,7 @@ export default function CartRecovery() {
   async function saveUrl() { if (cfg && urlDraft && urlDraft !== cfg.store_url) setCfg(await setStoreConfig({ store_url: urlDraft })); }
   async function regen() { setCfg(await setStoreConfig({ regenerate_key: true })); }
 
-  if (!state) return <p className="text-sm text-muted-foreground">Loading cart recovery…</p>;
+  if (!state) return <p className="text-sm text-muted-foreground">Loading Link-Up…</p>;
   const m = state.metrics;
 
   return (
