@@ -10,6 +10,7 @@ import ByoData from "./components/ByoData";
 import Channels from "./components/Channels";
 import Workflows from "./components/Workflows";
 import Proof from "./components/Proof";
+import Settings from "./components/Settings";
 import Copilot from "./components/Copilot";
 import Tour from "./components/Tour";
 import { Handoff, NavContext } from "./nav";
@@ -25,6 +26,7 @@ const TITLES: Record<Tab, string> = {
   channels: "Channels",
   proof: "Proof",
   agentops: "Agent Console",
+  settings: "Settings",
 };
 
 // One line per surface: its role in the core loop of predicting (and proving) ROI.
@@ -37,9 +39,10 @@ const SUBTITLES: Record<Tab, string> = {
   channels: "Activate — the real rails that turn predicted ROI into realized ROI.",
   proof: "Prove — actual vs. predicted ROI on every campaign.",
   agentops: "Operate — drive the whole ROI loop in natural language.",
+  settings: "Connect your channels, choose sandbox or live, review guardrails.",
 };
 
-export default function App({ onHome }: { onHome?: () => void }) {
+export default function App({ onHome, onLogout }: { onHome?: () => void; onLogout?: () => void }) {
   const [tab, setTab] = useState<Tab>("dashboard");
   const [meta, setMeta] = useState<Meta | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -63,6 +66,8 @@ export default function App({ onHome }: { onHome?: () => void }) {
           subtitle={SUBTITLES[tab]}
           sidebarOpen={sidebarOpen}
           setSidebarOpen={setSidebarOpen}
+          onLogout={onLogout}
+          onSettings={() => setTab("settings")}
         />
 
         <main className="grow">
@@ -83,6 +88,7 @@ export default function App({ onHome }: { onHome?: () => void }) {
                 {tab === "proof" && <Proof />}
                 {tab === "creative" && <CreativePreflight meta={meta} />}
                 {tab === "agentops" && <AgentOps />}
+                {tab === "settings" && <Settings />}
               </motion.div>
             </AnimatePresence>
           </div>

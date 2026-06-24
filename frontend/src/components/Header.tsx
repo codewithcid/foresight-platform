@@ -1,4 +1,6 @@
+import { useEffect, useRef, useState } from "react";
 import { useTheme } from "../ThemeContext";
+import { getSettings } from "../api";
 import { Moon, Sun } from "./Icons";
 
 export default function Header({
@@ -6,13 +8,29 @@ export default function Header({
   subtitle,
   sidebarOpen,
   setSidebarOpen,
+  onLogout,
+  onSettings,
 }: {
   title: string;
   subtitle?: string;
   sidebarOpen: boolean;
   setSidebarOpen: (v: boolean) => void;
+  onLogout?: () => void;
+  onSettings?: () => void;
 }) {
   const { theme, toggle } = useTheme();
+  const [mode, setMode] = useState<string>("");
+  const [menu, setMenu] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const workspace = localStorage.getItem("foresight-workspace") || "Foresight";
+  const email = localStorage.getItem("foresight-email") || "demo@foresight.ai";
+
+  useEffect(() => { getSettings().then((s) => setMode(s.mode)).catch(() => {}); }, [title]);
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setMenu(false); };
+    document.addEventListener("click", h);
+    return () => document.removeEventListener("click", h);
+  }, []);
 
   return (
     <header className="sticky top-0 before:absolute before:inset-0 before:backdrop-blur-md max-lg:before:bg-white/90 dark:max-lg:before:bg-gray-800/90 before:-z-10 z-30 max-lg:shadow-xs lg:before:bg-gray-100/90 dark:lg:before:bg-gray-900/90">
@@ -49,8 +67,16 @@ export default function Header({
             </div>
           </div>
 
-          {/* Right: theme toggle */}
-          <div className="flex items-center gap-3">
+          {/* Right: mode badge · theme · account */}
+          <div className="flex items-center gap-2.5">
+            {mode && (
+              <button onClick={onSettings} title="Change in Settings"
+                className={`hidden sm:inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full ring-1 ${
+                  mode === "live" ? "text-success ring-success/40 bg-success/10" : "text-amber-500 dark:text-amber-400 ring-amber-400/40 bg-amber-400/10"}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${mode === "live" ? "bg-success" : "bg-amber-400"} ${mode === "live" ? "" : "animate-pulse"}`} />
+                {mode === "live" ? "Live" : "Sandbox"}
+              </button>
+            )}
             <button
               onClick={toggle}
               title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
@@ -58,6 +84,32 @@ export default function Header({
             >
               {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
             </button>
+
+            <div className="relative" ref={ref}>
+              <button onClick={() => setMenu((v) => !v)}
+                className="w-8 h-8 grid place-items-center rounded-full bg-violet-500/15 text-violet-500 font-bold text-sm hover:bg-violet-500/25 transition">
+                {workspace.charAt(0).toUpperCase()}
+              </button>
+              {menu && (
+                <div className="absolute right-0 mt-2 w-56 rounded-xl bg-white dark:bg-gray-800 ring-1 ring-black/10 dark:ring-white/10 shadow-xl p-1.5 text-sm">
+                  <div className="px-2.5 py-2">
+                    <div className="font-semibold text-gray-800 dark:text-gray-100 truncate">{workspace}</div>
+                    <div className="text-xs text-gray-400 truncate">{email}</div>
+                  </div>
+                  <div className="h-px bg-gray-100 dark:bg-gray-700/60 my-1" />
+                  <button onClick={() => { setMenu(false); onSettings?.(); }}
+                    className="w-full text-left px-2.5 py-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700/60 text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                    <i className="ri-settings-3-line" /> Settings
+                  </button>
+                  {onLogout && (
+                    <button onClick={() => { setMenu(false); onLogout(); }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700/60 text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                      <i className="ri-logout-box-r-line" /> Log out
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

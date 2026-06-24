@@ -1,25 +1,34 @@
 import { useEffect, useState } from "react";
 import App from "./App";
 import Landing from "./landing/Landing";
+import Login from "./components/Login";
 
 type View = "landing" | "app";
 
 /**
- * Top-level shell. Shows the marketing landing first; the "Launch Platform"
- * CTA flips to the live app. The choice persists for the tab session so a
- * refresh after launching stays in the app instead of bouncing to the hero.
+ * Top-level shell. Marketing landing first; "Launch Platform" flips to the app,
+ * which is gated behind a sign-in. Session persists for the tab.
  */
 export default function Root() {
   const [view, setView] = useState<View>(
     () => (sessionStorage.getItem("foresight-view") as View) || "landing"
   );
+  const [authed, setAuthed] = useState<boolean>(() => !!localStorage.getItem("foresight-auth"));
 
   useEffect(() => {
     sessionStorage.setItem("foresight-view", view);
-    // Landing is a light surface; let it scroll. The app owns its own layout.
     window.scrollTo(0, 0);
   }, [view]);
 
-  if (view === "app") return <App onHome={() => setView("landing")} />;
+  function logout() {
+    localStorage.removeItem("foresight-auth");
+    setAuthed(false);
+    setView("landing");
+  }
+
+  if (view === "app") {
+    if (!authed) return <Login onAuthed={() => setAuthed(true)} onBack={() => setView("landing")} />;
+    return <App onHome={() => setView("landing")} onLogout={logout} />;
+  }
   return <Landing onLaunch={() => setView("app")} />;
 }
