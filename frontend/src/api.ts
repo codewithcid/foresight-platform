@@ -277,11 +277,16 @@ export async function getRun(id: number): Promise<Run> {
   return fetch(`${BASE}/api/workflows/runs/${id}`).then((r) => r.json());
 }
 export async function startWorkflow(params: {
-  workflow?: string; segment: string; intervention: string; channel: string;
-  budget?: number; test_recipient?: string; label?: string; copy?: string; angle?: string;
+  workflow?: string; segment?: string; intervention?: string; channel: string;
+  budget?: number; test_recipient?: string; label?: string; copy?: string; angle?: string; auto?: boolean;
 }): Promise<Run> {
   return fetch(`${BASE}/api/workflows/run`, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(params),
+  }).then((r) => r.json());
+}
+export async function runAutopilot(goal: string, budget?: number): Promise<{ runs: number[]; total_pred_incr_revenue?: number }> {
+  return fetch(`${BASE}/api/agent/autopilot`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ goal, budget }),
   }).then((r) => r.json());
 }
 export async function approveRun(id: number, test_recipient?: string): Promise<Run> {
