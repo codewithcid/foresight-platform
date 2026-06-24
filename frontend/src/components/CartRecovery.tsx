@@ -33,6 +33,7 @@ export default function CartRecovery() {
   const [nf, setNf] = useState({ name: "", phone: "", value: "", item: "" });
   const [nbusy, setNbusy] = useState(false);
   const [nres, setNres] = useState("");
+  const [nudgeOpen, setNudgeOpen] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
 
   function refresh() { getStoreState().then(setState); }
@@ -95,40 +96,6 @@ export default function CartRecovery() {
         <MetricCard icon={<Target size={16} />} label="Discount spend" value={inr(m.budget_spent)} sub={`of ${inr(m.budget_cap)} cap`} />
         <MetricCard icon={<Bolt size={16} />} label="Active carts" value={m.active} sub={`abandon after ${state.abandon_window}s`} />
       </div>
-
-      {/* Manual nudge — safety net */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm flex items-center gap-2"><i className="ri-whatsapp-line text-success" /> Send a discount nudge</CardTitle>
-          <CardDescription className="text-xs">Manually WhatsApp a customer a comeback offer — a safety net if no live cart event has fired.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <label className="text-[11px] text-muted-foreground">Name
-              <input value={nf.name} onChange={(e) => setNf({ ...nf, name: e.target.value })} placeholder="Asha" className="form-input w-full mt-1 text-sm" />
-            </label>
-            <label className="text-[11px] text-muted-foreground">WhatsApp number
-              <input value={nf.phone} onChange={(e) => setNf({ ...nf, phone: e.target.value })} placeholder="+9162…" className="form-input w-full mt-1 text-sm" />
-            </label>
-            <label className="text-[11px] text-muted-foreground">Cart value (₹)
-              <input value={nf.value} onChange={(e) => setNf({ ...nf, value: e.target.value })} type="number" placeholder="1499" className="form-input w-full mt-1 text-sm" />
-            </label>
-            <label className="text-[11px] text-muted-foreground">Item (optional)
-              <input value={nf.item} onChange={(e) => setNf({ ...nf, item: e.target.value })} placeholder="Sneakers" className="form-input w-full mt-1 text-sm" />
-            </label>
-          </div>
-          <div className="flex items-center gap-3 mt-3 flex-wrap">
-            <button onClick={nudge} disabled={nbusy || !nf.phone.trim()}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-success text-ink text-sm font-semibold disabled:opacity-40 hover:opacity-90 transition">
-              <i className="ri-send-plane-fill" /> {nbusy ? "Sending…" : "Send WhatsApp nudge"}
-            </button>
-            {nres && <span className="text-xs text-muted-foreground">{nres}</span>}
-          </div>
-          <p className="text-[11px] text-muted-foreground mt-2">
-            The agent picks a budget-safe discount and sends a deep link to {state.store_url.replace("{cart_id}", "…")}. Delivery routes through <b className="text-card-foreground/80">Novu</b> if connected (Settings → Connections), otherwise direct WhatsApp.
-          </p>
-        </CardContent>
-      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Recovery queue */}
@@ -211,6 +178,49 @@ export default function CartRecovery() {
             </>
           )}
         </CardContent>
+      </Card>
+
+      {/* Manual nudge — collapsible option (safety net) */}
+      <Card>
+        <button onClick={() => setNudgeOpen((o) => !o)}
+          className="w-full flex items-center justify-between gap-3 p-5 text-left hover:bg-muted/20 transition-colors rounded-xl">
+          <div className="flex items-center gap-3">
+            <i className="ri-whatsapp-line text-success text-xl" />
+            <div>
+              <div className="text-sm font-semibold text-card-foreground">Send a discount nudge</div>
+              <div className="text-xs text-muted-foreground">Manually reach a customer with a comeback offer — a safety net if no live cart event has fired.</div>
+            </div>
+          </div>
+          <i className={`ri-arrow-down-s-line text-muted-foreground text-xl transition-transform ${nudgeOpen ? "rotate-180" : ""}`} />
+        </button>
+        {nudgeOpen && (
+          <CardContent className="pt-0">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <label className="text-[11px] text-muted-foreground">Name
+                <input value={nf.name} onChange={(e) => setNf({ ...nf, name: e.target.value })} placeholder="Asha" className="form-input w-full mt-1 text-sm" />
+              </label>
+              <label className="text-[11px] text-muted-foreground">WhatsApp number
+                <input value={nf.phone} onChange={(e) => setNf({ ...nf, phone: e.target.value })} placeholder="+9162…" className="form-input w-full mt-1 text-sm" />
+              </label>
+              <label className="text-[11px] text-muted-foreground">Cart value (₹)
+                <input value={nf.value} onChange={(e) => setNf({ ...nf, value: e.target.value })} type="number" placeholder="1499" className="form-input w-full mt-1 text-sm" />
+              </label>
+              <label className="text-[11px] text-muted-foreground">Item (optional)
+                <input value={nf.item} onChange={(e) => setNf({ ...nf, item: e.target.value })} placeholder="Sneakers" className="form-input w-full mt-1 text-sm" />
+              </label>
+            </div>
+            <div className="flex items-center gap-3 mt-3 flex-wrap">
+              <button onClick={nudge} disabled={nbusy || !nf.phone.trim()}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-success text-ink text-sm font-semibold disabled:opacity-40 hover:opacity-90 transition">
+                <i className="ri-send-plane-fill" /> {nbusy ? "Sending…" : "Send nudge"}
+              </button>
+              {nres && <span className="text-xs text-muted-foreground">{nres}</span>}
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-2">
+              The agent picks a budget-safe discount and sends a deep link to {state.store_url.replace("{cart_id}", "…")}. Delivery routes through <b className="text-card-foreground/80">Novu</b> if connected (Settings → Connections), otherwise direct WhatsApp.
+            </p>
+          </CardContent>
+        )}
       </Card>
     </div>
   );
