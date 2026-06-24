@@ -21,7 +21,7 @@ import { pageTransition } from "./ui/motion";
 const TITLES: Record<Tab, string> = {
   dashboard: "Command",
   workflows: "Workflows",
-  store: "Cart Recovery",
+  store: "Link-Up",
   planner: "Spend Planner",
   byocsv: "Audience & Uplift",
   creative: "Creative Pre-Flight",
@@ -35,7 +35,7 @@ const TITLES: Record<Tab, string> = {
 const SUBTITLES: Record<Tab, string> = {
   dashboard: "Live cockpit — watch predicted ROI being acted on, and the loop learn.",
   workflows: "Activate — orchestrate the ROI-maximizing action, end to end.",
-  store: "Recover abandoned carts on a real store — push, prove, escalate within budget.",
+  store: "Plug in your app — Foresight recovers abandoned carts live, and proves the lift.",
   planner: "Anticipate — allocate budget to the highest-predicted-ROI segments.",
   byocsv: "Anticipate — the causal model that predicts each customer's ROI.",
   creative: "Activate — predict which creative lifts ROI, before you spend.",
