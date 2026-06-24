@@ -800,6 +800,21 @@ async def store_simulate():
     return await STATE["store"].simulate()
 
 
+class NudgeRequest(BaseModel):
+    phone: str
+    name: str = ""
+    value: float | None = None
+    item: str | None = None
+    cart_id: str | None = None
+
+
+@app.post("/api/store/nudge")
+async def store_nudge(req: NudgeRequest):
+    if not req.phone.strip():
+        raise HTTPException(400, "A WhatsApp phone number is required")
+    return await STATE["store"].manual_nudge(req.name, req.phone, req.value or 0.0, req.item, req.cart_id)
+
+
 # ------------------------------------------------------------------- sim ctl
 @app.get("/api/sim/status")
 def sim_status():

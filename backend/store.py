@@ -282,6 +282,23 @@ class StoreEngine:
         }, explicit_abandon=True)
         return db.cart_get(cid)
 
+    # --------------------------------------------------------------- manual
+    async def manual_nudge(self, name: str, phone: str, value: float = 0.0,
+                           item: str | None = None, cart_id: str | None = None) -> dict:
+        """Operator-triggered nudge — WhatsApp a specific customer a discount now.
+        Safety net for the demo when no live cart event has fired."""
+        cart_id = (cart_id or "").strip() or f"manual_{secrets.token_hex(3)}"
+        value = float(value or 0.0)
+        cart = db.cart_upsert(cart_id, {
+            "customer_id": cart_id, "name": (name or "there").strip(),
+            "phone": (phone or "").strip(),
+            "items": [{"name": item or "your items", "qty": 1, "price": value}],
+            "value": value, "currency": "INR", "status": "active",
+        })
+        await self._emit("cart_updated", cart)
+        await self._recover(cart, 0)
+        return db.cart_get(cart_id)
+
     # --------------------------------------------------------------- state
     def state(self) -> dict:
         carts = db.carts_list(80)
