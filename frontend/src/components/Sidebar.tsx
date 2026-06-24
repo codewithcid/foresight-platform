@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
-import { Activity, CheckDouble, Database, Layers, Megaphone, Puzzle, Target, Wand } from "./Icons";
+import { Activity, Bag, CheckDouble, Database, Layers, Megaphone, Puzzle, Target, Wand } from "./Icons";
 
-export type Tab = "dashboard" | "workflows" | "planner" | "byocsv" | "creative" | "channels" | "proof" | "agentops" | "settings";
+export type Tab = "dashboard" | "workflows" | "store" | "planner" | "byocsv" | "creative" | "channels" | "proof" | "agentops" | "settings";
 
 const NAV: { group: string; items: { key: Tab; label: string; icon: ReactNode }[] }[] = [
   {
@@ -9,6 +9,7 @@ const NAV: { group: string; items: { key: Tab; label: string; icon: ReactNode }[
     items: [
       { key: "dashboard", label: "Command", icon: <Activity size={18} /> },
       { key: "workflows", label: "Workflows", icon: <Layers size={18} /> },
+      { key: "store", label: "Cart Recovery", icon: <Bag size={18} /> },
       { key: "planner", label: "Spend Planner", icon: <Target size={18} /> },
       { key: "byocsv", label: "Audience & Uplift", icon: <Database size={18} /> },
       { key: "creative", label: "Creative Pre-Flight", icon: <Wand size={18} /> },

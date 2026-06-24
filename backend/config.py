@@ -56,3 +56,18 @@ TEST_SIZE = 0.30
 # How long the agent waits after an add-to-cart before treating it as
 # "abandoned" and deciding whether to act -- short for demo purposes.
 ABANDON_CHECK_SECONDS = 7.0
+
+# ---- Cart-recovery engine (third-party store integration) ----
+# Escalating discount ladder (% off). The agent starts low and only escalates
+# to a bigger discount if a cheaper one fails AND budget/margin still allow it.
+DISCOUNT_LADDER = [5, 10, 15]
+# Predicted recovery probability per discount tier (diminishing returns). This is
+# the "predicted" half of the proof: actual = did the customer actually buy.
+RECOVERY_PROB = {5: 0.18, 10: 0.30, 15: 0.40}
+MARGIN_RATE = 0.45  # gross margin on a sale; a discount must stay within this headroom
+# No purchase this long after the last cart update => abandoned, fire recovery.
+ABANDON_WINDOW_SEC = 120
+# No purchase this long after a push => escalate the discount (or give up).
+ESCALATE_WINDOW_SEC = 120
+# Default store deep-link template; {cart_id} is substituted. Override in Settings.
+STORE_CART_URL = "https://your-store.example/cart/{cart_id}"
