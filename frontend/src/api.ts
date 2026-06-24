@@ -366,6 +366,9 @@ export async function sendNudge(body: { phone: string; name?: string; value?: nu
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
   }).then((r) => r.json());
 }
+export async function resetStore(): Promise<StoreState> {
+  return fetch(`${BASE}/api/store/reset`, { method: "POST" }).then((r) => r.json());
+}
 
 export function connectFeed(onMessage: (payload: any) => void): WebSocket {
   const proto = window.location.protocol === "https:" ? "wss" : "ws";

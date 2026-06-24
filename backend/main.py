@@ -815,6 +815,11 @@ async def store_nudge(req: NudgeRequest):
     return await STATE["store"].manual_nudge(req.name, req.phone, req.value or 0.0, req.item, req.cart_id)
 
 
+@app.post("/api/store/reset")
+def store_reset():
+    return STATE["store"].reset()
+
+
 # ------------------------------------------------------------------- sim ctl
 @app.get("/api/sim/status")
 def sim_status():
