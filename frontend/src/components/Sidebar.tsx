@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { Activity, CheckDouble, Database, Layers, Megaphone, Puzzle, Target, Wand } from "./Icons";
 
-export type Tab = "dashboard" | "workflows" | "planner" | "byocsv" | "creative" | "channels" | "proof" | "agentops";
+export type Tab = "dashboard" | "workflows" | "planner" | "byocsv" | "creative" | "channels" | "proof" | "agentops" | "settings";
 
 const NAV: { group: string; items: { key: Tab; label: string; icon: ReactNode }[] }[] = [
   {
@@ -15,6 +15,7 @@ const NAV: { group: string; items: { key: Tab; label: string; icon: ReactNode }[
       { key: "channels", label: "Channels", icon: <Megaphone size={18} /> },
       { key: "proof", label: "Proof", icon: <CheckDouble size={18} /> },
       { key: "agentops", label: "Agent Console", icon: <Puzzle size={18} /> },
+      { key: "settings", label: "Settings", icon: <i className="ri-settings-3-line text-[18px]" /> },
     ],
   },
 ];

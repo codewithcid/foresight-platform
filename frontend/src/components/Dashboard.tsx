@@ -4,6 +4,7 @@ import MissionControl from "./MissionControl";
 import BanditPanel from "./BanditPanel";
 import ModelCard from "./ModelCard";
 import RoiLoop from "./RoiLoop";
+import Onboarding from "./Onboarding";
 import { Bolt, Dice, Shield } from "./Icons";
 
 type InnerTab = "feed" | "bandit" | "model";
@@ -14,6 +15,7 @@ export default function Dashboard({ meta }: { meta: Meta | null }) {
 
   return (
     <div>
+      <Onboarding />
       <RoiLoop />
       <div className="flex flex-wrap gap-1 mb-5 p-1 bg-card ring-1 ring-foreground/10 rounded-xl w-fit">
         {([

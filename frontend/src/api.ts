@@ -298,6 +298,38 @@ export async function rejectRun(id: number): Promise<Run> {
   return fetch(`${BASE}/api/workflows/runs/${id}/reject`, { method: "POST" }).then((r) => r.json());
 }
 
+// ---- Settings / connections / mode / auth ----
+export type ConnField = { key: string; set: boolean; masked: string };
+export type Connection = ChannelStatus & { fields: ConnField[] };
+export type SettingsData = {
+  workspace: string; mode: string;
+  connections: Connection[];
+  limits: { max_actions_per_day: number; daily_budget: number; min_lift_pct: number };
+};
+export async function getSettings(): Promise<SettingsData> {
+  return fetch(`${BASE}/api/settings`).then((r) => r.json());
+}
+export async function saveSettings(updates: Record<string, string>): Promise<SettingsData> {
+  return fetch(`${BASE}/api/settings`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ updates }),
+  }).then((r) => r.json());
+}
+export async function setMode(mode: "sandbox" | "live"): Promise<{ mode: string; sandbox_running: boolean }> {
+  return fetch(`${BASE}/api/mode`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode }),
+  }).then((r) => r.json());
+}
+export async function authConfig(): Promise<{ workspace: string; demo_email: string }> {
+  return fetch(`${BASE}/api/auth/config`).then((r) => r.json());
+}
+export async function login(email: string, password: string): Promise<{ ok?: boolean; token?: string; email?: string; workspace?: string; detail?: string }> {
+  const r = await fetch(`${BASE}/api/auth/login`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }),
+  });
+  if (!r.ok) return { detail: (await r.json().catch(() => ({}))).detail || "Login failed" };
+  return r.json();
+}
+
 export function connectFeed(onMessage: (payload: any) => void): WebSocket {
   const proto = window.location.protocol === "https:" ? "wss" : "ws";
   const ws = new WebSocket(`${proto}://${window.location.host}/ws/feed`);
