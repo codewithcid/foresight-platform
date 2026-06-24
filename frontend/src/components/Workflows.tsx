@@ -2,10 +2,28 @@ import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Run, RunStep, WorkflowMeta, approveRun, connectFeed, getRun, getRuns, getWorkflowMeta,
-  rejectRun, startWorkflow,
+  rejectRun, runAutopilot, startWorkflow,
 } from "../api";
 import { Badge, Card, CardContent, CardDescription, CardHeader, CardHeaderRow, CardTitle } from "../ui/dash";
 import { useNav } from "../nav";
+
+const AGENT: Record<string, string> = {
+  trigger: "Sensor", predict: "Strategist", guardrail: "Guardrail", generate: "Execution",
+  pretest: "Pre-test", approve: "Human", deliver: "Execution", prove: "Critic",
+};
+
+/** Types text out character-by-character for an "agent thinking" feel. */
+function Typewriter({ text, speed = 14 }: { text: string; speed?: number }) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    setN(0);
+    if (!text) return;
+    let i = 0;
+    const id = setInterval(() => { i += 2; setN(i); if (i >= text.length) clearInterval(id); }, speed);
+    return () => clearInterval(id);
+  }, [text, speed]);
+  return <>{text.slice(0, n)}</>;
+}
 
 const STATUS_STYLE: Record<string, { ring: string; dot: string; text: string }> = {
   pending: { ring: "ring-foreground/10", dot: "bg-muted-foreground/40", text: "text-muted-foreground" },
@@ -30,17 +48,26 @@ function fmtVal(k: string, v: any): string {
 
 function StepNode({ step, last }: { step: RunStep; last: boolean }) {
   const st = STATUS_STYLE[step.status] || STATUS_STYLE.pending;
-  const entries = Object.entries(step.output || {}).filter(([k]) => k !== "copy").slice(0, 4);
+  const out = step.output || {};
+  const reasoning: string = out.reasoning || "";
+  const entries = Object.entries(out).filter(([k]) => k !== "copy" && k !== "reasoning").slice(0, 3);
+  const active = step.status === "running" || step.status === "awaiting";
   return (
     <div className="flex items-stretch">
-      <div className={`rounded-xl ring-1 ${st.ring} bg-card p-3 w-[170px] shrink-0`}>
-        <div className="flex items-center gap-2">
+      <div className={`rounded-xl ring-1 ${st.ring} bg-card p-3 w-[190px] shrink-0`}>
+        <div className="flex items-center justify-between">
+          <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70">{AGENT[step.name] || "Agent"}</span>
           <span className={`h-2 w-2 rounded-full ${st.dot}`} />
-          <span className="font-grotesk font-bold text-sm">{step.label}</span>
         </div>
-        <div className={`text-[10px] uppercase tracking-wider mt-0.5 ${st.text}`}>{step.status}</div>
+        <div className="font-grotesk font-bold text-sm mt-0.5">{step.label}</div>
+        <div className={`text-[10px] uppercase tracking-wider ${st.text}`}>{step.status}</div>
+        {reasoning && (
+          <p className="text-[10px] text-card-foreground/70 leading-snug mt-1.5 min-h-[2.4em]">
+            {active ? "…" : <Typewriter text={reasoning} />}
+          </p>
+        )}
         {entries.length > 0 && (
-          <div className="mt-2 space-y-0.5">
+          <div className="mt-1.5 space-y-0.5 border-t border-border/60 pt-1.5">
             {entries.map(([k, v]) => (
               <div key={k} className="flex justify-between gap-2 text-[10px]">
                 <span className="text-muted-foreground truncate">{k.replace(/_/g, " ")}</span>
@@ -62,7 +89,10 @@ export default function Workflows() {
   const [steps, setSteps] = useState<RunStep[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
   const [busy, setBusy] = useState(false);
+  const [auto, setAuto] = useState(false);
   const [carried, setCarried] = useState<{ copy?: string; from?: string }>({});
+  const [apLog, setApLog] = useState<{ phase: string; text: string; plan?: any[] }[]>([]);
+  const [apBusy, setApBusy] = useState(false);
   const runIdRef = useRef<number | null>(null);
   const { handoff, clearHandoff } = useNav();
 
@@ -89,10 +119,18 @@ export default function Workflows() {
     const ws = connectFeed((p) => {
       if (p.type === "workflow_step" && p.run_id === runIdRef.current) {
         setSteps((prev) => prev.map((s) => (s.name === p.step.name ? { ...s, status: p.step.status, output: p.step.output } : s)));
+      } else if (p.type === "autopilot") {
+        setApLog((l) => [...l, { phase: p.phase, text: p.text, plan: p.plan }]);
       }
     });
     return () => ws.close();
   }, []);
+
+  async function autopilot() {
+    setApBusy(true); setApLog([]);
+    try { await runAutopilot("maximize incremental ROI within budget"); refreshRuns(); }
+    finally { setApBusy(false); }
+  }
 
   function refreshRuns() { getRuns(8).then((d) => setRuns(d.runs)); }
 
@@ -102,10 +140,10 @@ export default function Workflows() {
   }
 
   async function launch() {
-    if (!form.segment || !form.intervention) return;
+    if (!auto && (!form.segment || !form.intervention)) return;
     setBusy(true); setSteps([]); setRun(null);
     try {
-      const r = await startWorkflow({ ...form, copy: carried.copy, angle: carried.copy ? "approved" : undefined });
+      const r = await startWorkflow({ ...form, auto, copy: carried.copy, angle: carried.copy ? "approved" : undefined });
       runIdRef.current = r.id;
       setRun(r); setSteps(r.steps);
       refreshRuns();
@@ -154,34 +192,41 @@ export default function Workflows() {
             ))}
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <label className="flex items-center gap-2 text-sm cursor-pointer w-fit">
+            <input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} className="accent-violet-500" />
+            <span className="font-medium">Let the Strategist decide</span>
+            <span className="text-[11px] text-muted-foreground">— the agent ranks every segment × action and picks the highest-ROI one itself</span>
+          </label>
+
+          <div className={`grid grid-cols-2 md:grid-cols-4 gap-3 ${auto ? "opacity-40 pointer-events-none" : ""}`}>
             <label className="text-xs text-muted-foreground">Segment
-              <select value={form.segment} onChange={(e) => setForm({ ...form, segment: e.target.value })} className="form-select w-full mt-1 text-sm">
+              <select value={form.segment} disabled={auto} onChange={(e) => setForm({ ...form, segment: e.target.value })} className="form-select w-full mt-1 text-sm">
                 {meta?.segments.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
               </select>
             </label>
             <label className="text-xs text-muted-foreground">Action
-              <select value={form.intervention} onChange={(e) => setForm({ ...form, intervention: e.target.value })} className="form-select w-full mt-1 text-sm">
+              <select value={form.intervention} disabled={auto} onChange={(e) => setForm({ ...form, intervention: e.target.value })} className="form-select w-full mt-1 text-sm">
                 {meta?.interventions.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}
               </select>
             </label>
             <label className="text-xs text-muted-foreground">Channel
-              <select value={form.channel} onChange={(e) => setForm({ ...form, channel: e.target.value })} className="form-select w-full mt-1 text-sm">
+              <select value={form.channel} disabled={auto} onChange={(e) => setForm({ ...form, channel: e.target.value })} className="form-select w-full mt-1 text-sm">
                 {["sms", "whatsapp", "email", "slack", "telegram"].map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </label>
             <label className="text-xs text-muted-foreground">Test recipient (optional)
-              <input value={form.test_recipient} onChange={(e) => setForm({ ...form, test_recipient: e.target.value })} placeholder="+91…" className="form-input w-full mt-1 text-sm" />
+              <input value={form.test_recipient} disabled={auto} onChange={(e) => setForm({ ...form, test_recipient: e.target.value })} placeholder="+91…" className="form-input w-full mt-1 text-sm" />
             </label>
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
             <button onClick={launch} disabled={busy}
               className="px-5 py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-40 hover:opacity-90 transition">
-              {busy ? "Running…" : "Run workflow"}
+              {busy ? "Running…" : auto ? "Run — agent decides" : "Run workflow"}
             </button>
             <span className="text-[11px] text-muted-foreground">
-              Channel <b className="text-card-foreground/80">{form.channel}</b> {channelLive ? "· live" : "· not connected (proof still runs)"}
+              {auto ? "The Strategist will pick the segment, action & channel."
+                    : <>Channel <b className="text-card-foreground/80">{form.channel}</b> {channelLive ? "· live" : "· not connected (proof still runs)"}</>}
               <span className="text-muted-foreground/60"> · first run can take ~30s (LLM warm-up)</span>
             </span>
           </div>
@@ -194,6 +239,43 @@ export default function Workflows() {
             </div>
           )}
         </CardContent>
+      </Card>
+
+      {/* Autopilot */}
+      <Card className="ring-primary/25">
+        <CardHeaderRow>
+          <div className="grid gap-1">
+            <CardTitle className="text-sm flex items-center gap-2"><i className="ri-robot-2-line text-primary" /> Autopilot</CardTitle>
+            <CardDescription className="text-xs">Give the agent a goal — it ranks every segment × action, then plans and runs the top campaigns autonomously, proving each on a holdout.</CardDescription>
+          </div>
+          <button onClick={autopilot} disabled={apBusy}
+            className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-40 hover:opacity-90 transition">
+            <i className="ri-play-circle-line" /> {apBusy ? "Running…" : "Run Autopilot"}
+          </button>
+        </CardHeaderRow>
+        {apLog.length > 0 && (
+          <CardContent>
+            <div className="rounded-lg bg-muted/30 ring-1 ring-foreground/10 p-3 font-mono text-xs space-y-1.5 max-h-72 overflow-y-auto">
+              {apLog.map((e, i) => (
+                <div key={i}>
+                  <span className={
+                    e.phase === "result" || e.phase === "done" ? "text-success"
+                      : e.phase === "run" ? "text-primary" : "text-muted-foreground"
+                  }>{e.phase === "done" ? "✓" : e.phase === "result" ? "✓" : "›"}</span>{" "}
+                  <span className="text-card-foreground/90">{e.text}</span>
+                  {e.plan && (
+                    <ul className="mt-1 ml-4 space-y-0.5">
+                      {e.plan.map((p: any, j: number) => (
+                        <li key={j} className="text-muted-foreground">• {p.label} <span className="text-card-foreground/70">on {p.channel}</span> — ₹{Math.round(p.pred_incr_revenue).toLocaleString("en-IN")}, ROI {p.roi}×</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+              {apBusy && <div className="text-primary animate-pulse">▍ agent working…</div>}
+            </div>
+          </CardContent>
+        )}
       </Card>
 
       {/* Live graph */}

@@ -599,14 +599,20 @@ async def slack_interact(request: Request):
 # ------------------------------------------------------------------ workflows
 class WorkflowRunRequest(BaseModel):
     workflow: str | None = None
-    segment: str
-    intervention: str
+    segment: str = ""
+    intervention: str = ""
     channel: str = "sms"
     budget: float | None = None
     test_recipient: str | None = None
     label: str | None = None
     copy: str | None = None   # a specific creative to run (e.g. from Creative Pre-Flight)
     angle: str | None = None
+    auto: bool | None = None  # let the Strategist pick the segment/action itself
+
+
+class AutopilotRequest(BaseModel):
+    goal: str | None = None
+    budget: float | None = None
 
 
 class ApproveRequest(BaseModel):
@@ -653,6 +659,12 @@ async def workflows_approve(run_id: int, req: ApproveRequest):
 @app.post("/api/workflows/runs/{run_id}/reject")
 async def workflows_reject(run_id: int):
     return await STATE["workflow"].reject(run_id, broadcast)
+
+
+@app.post("/api/agent/autopilot")
+async def agent_autopilot(req: AutopilotRequest):
+    budget = float(req.budget or C.DAILY_BUDGET_USD)
+    return await STATE["workflow"].autopilot(req.goal or "", budget, broadcast)
 
 
 # ------------------------------------------------------------------- sim ctl

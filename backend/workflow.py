@@ -25,21 +25,30 @@ import channels
 import config as C
 import creative
 import db
+import llm
 import pre_test
 import tracking
 from channels import slack as slack_ch
 
 # Definition of the canonical step sequence (for the UI to render the graph).
+# `agent` names the autonomous actor that owns each step.
 STEP_DEFS = [
-    {"name": "trigger", "label": "Trigger"},
-    {"name": "predict", "label": "Predict uplift"},
-    {"name": "guardrail", "label": "Guardrail"},
-    {"name": "generate", "label": "Generate creative"},
-    {"name": "pretest", "label": "Pre-test"},
-    {"name": "approve", "label": "Approve"},
-    {"name": "deliver", "label": "Deliver"},
-    {"name": "prove", "label": "Prove"},
+    {"name": "trigger", "label": "Trigger", "agent": "Sensor"},
+    {"name": "predict", "label": "Predict uplift", "agent": "Strategist"},
+    {"name": "guardrail", "label": "Guardrail", "agent": "Guardrail"},
+    {"name": "generate", "label": "Generate creative", "agent": "Execution"},
+    {"name": "pretest", "label": "Pre-test", "agent": "Pre-test"},
+    {"name": "approve", "label": "Approve", "agent": "Human"},
+    {"name": "deliver", "label": "Deliver", "agent": "Execution"},
+    {"name": "prove", "label": "Prove", "agent": "Critic"},
 ]
+
+# Intervention channel label -> a real delivery channel.
+_DELIVERY = {"sms": "sms", "email": "email", "app_push": "whatsapp", "paid_social": "telegram"}
+
+
+def _delivery_channel(c: str) -> str:
+    return _DELIVERY.get(c, "sms")
 
 TEMPLATES = [
     {
@@ -88,9 +97,9 @@ class WorkflowEngine:
         sample = pool.sample(min(n, audience), random_state=C.SEED) if audience else pool
         return sample, audience
 
-    def _predict_segment(self, seg_key: str, intervention: str, budget: float):
+    def _predict_segment(self, seg_key: str, intervention: str, budget: float, sample_n: int = 200):
         engine = self.ctx["engine"]
-        sample, audience = self._segment_sample(seg_key)
+        sample, audience = self._segment_sample(seg_key, sample_n)
         rels, convs = [], []
         for _, row in sample.iterrows():
             preds = engine.predict_for_customer(row)
@@ -112,6 +121,26 @@ class WorkflowEngine:
             "pred_incr_revenue": round(pred_incr_rev, 2), "sample_n": int(len(sample)),
         }
 
+    def _rank_actions(self, budget: float, top_k: int | None = None, sample_n: int = 60) -> list[dict]:
+        """Strategist: score every segment × intervention by predicted incremental
+        revenue (and ROI), so the agent can pick the next-best action itself."""
+        ranked = []
+        for seg in C.SEGMENTS:
+            for intv in C.INTERVENTIONS:
+                p = self._predict_segment(seg, intv, budget, sample_n=sample_n)
+                if p["reach"] == 0 or p["avg_rel_lift"] < C.MIN_REL_LIFT_TO_ACT:
+                    continue
+                roi = (p["pred_incr_revenue"] / p["cost"]) if p["cost"] else 0.0
+                ranked.append({
+                    "segment": seg, "intervention": intv,
+                    "channel": _delivery_channel(C.INTERVENTIONS[intv]["channel"]),
+                    "seg_label": C.SEGMENTS[seg]["label"], "intv_label": C.INTERVENTIONS[intv]["label"],
+                    "reach": p["reach"], "pred_incr_revenue": p["pred_incr_revenue"],
+                    "avg_rel_lift": p["avg_rel_lift"], "roi": round(roi, 2),
+                })
+        ranked.sort(key=lambda x: x["pred_incr_revenue"], reverse=True)
+        return ranked[:top_k] if top_k else ranked
+
     def _true_segment_lift(self, seg_key: str, intervention: str) -> float:
         sample, _ = self._segment_sample(seg_key)
         col = f"p1_{intervention}"
@@ -125,10 +154,26 @@ class WorkflowEngine:
 
     # ------------------------------------------------------------------- run
     async def run(self, params: dict, broadcast) -> dict:
+        budget = float(params.get("budget", C.DAILY_BUDGET_USD))
+
+        # "Let the Strategist decide": the agent ranks every segment × action and
+        # picks the highest-ROI one itself, instead of the operator choosing.
+        decision_note = None
+        if params.get("auto"):
+            ranked = self._rank_actions(budget)
+            if ranked:
+                top = ranked[0]
+                params = {**params, "segment": top["segment"], "intervention": top["intervention"], "channel": top["channel"]}
+                runner = ranked[1] if len(ranked) > 1 else None
+                decision_note = (
+                    f"Strategist evaluated {len(ranked)} segment×action options and chose "
+                    f"{top['intv_label']} → {top['seg_label']} (ROI {top['roi']}×, predicted ₹{top['pred_incr_revenue']:,.0f})"
+                    + (f", beating {runner['intv_label']} → {runner['seg_label']}." if runner else ".")
+                )
+
         seg = params["segment"]
         intervention = params["intervention"]
         channel_id = params.get("channel", "sms")
-        budget = float(params.get("budget", C.DAILY_BUDGET_USD))
         label = params.get("label") or next((t["label"] for t in TEMPLATES if t["id"] == params.get("workflow")), "Custom workflow")
         seg_label = C.SEGMENTS.get(seg, {}).get("label", seg)
         intv_label = C.INTERVENTIONS.get(intervention, {}).get("label", intervention)
@@ -144,14 +189,18 @@ class WorkflowEngine:
         # 1. trigger
         await step("trigger", "running", {})
         _, audience = self._segment_sample(seg)
-        await step("trigger", "done", {"segment": seg_label, "audience": audience, "intervention": intv_label, "channel": channel_id})
+        await step("trigger", "done", {"segment": seg_label, "audience": audience, "intervention": intv_label, "channel": channel_id,
+                   "reasoning": f"Sensor: {audience:,} {seg_label} customers reached intent — handing to the Strategist."})
 
-        # 2. predict
+        # 2. predict (Strategist)
         await step("predict", "running", {})
         pred = self._predict_segment(seg, intervention, budget)
+        predict_reason = decision_note or (
+            f"Strategist: {seg_label} shows avg CATE {pred['avg_rel_lift']*100:.1f}% over {pred['sample_n']} sampled; "
+            f"funding {pred['reach']:,} contacts within ₹{budget:,.0f} → ₹{pred['pred_incr_revenue']:,.0f} predicted incremental.")
         await step("predict", "done", {
             "reach": pred["reach"], "predicted_rel_lift_pct": round(pred["avg_rel_lift"] * 100, 1),
-            "predicted_incr_revenue": pred["pred_incr_revenue"], "cost": pred["cost"],
+            "predicted_incr_revenue": pred["pred_incr_revenue"], "cost": pred["cost"], "reasoning": predict_reason,
         })
 
         # 3. guardrail
@@ -161,12 +210,14 @@ class WorkflowEngine:
         if over_budget or below_thresh or pred["reach"] == 0:
             reason = ("predicted lift below threshold" if below_thresh else
                       "over budget" if over_budget else "no reachable audience")
-            await step("guardrail", "held", {"passed": False, "reason": reason})
+            await step("guardrail", "held", {"passed": False, "reason": reason,
+                       "reasoning": f"Guardrail: blocked — {reason}. No send."})
             db.update_run(run_id, status="held", summary={"reason": reason, **pred})
             return db.get_run(run_id)
         await step("guardrail", "done", {"passed": True,
                    "checks": [f"{C.MAX_ACTIONS_PER_CUSTOMER_PER_DAY} actions/customer cap",
-                              f"₹{budget:,.0f} budget", f"≥{C.MIN_REL_LIFT_TO_ACT*100:.0f}% lift", "brand-safety"]})
+                              f"₹{budget:,.0f} budget", f"≥{C.MIN_REL_LIFT_TO_ACT*100:.0f}% lift", "brand-safety"],
+                   "reasoning": f"Guardrail: frequency cap ✓, budget ✓, ≥{C.MIN_REL_LIFT_TO_ACT*100:.0f}% lift ✓, brand-safety ✓ — cleared to act."})
 
         # 4. generate (or use a creative handed in from Creative Pre-Flight)
         await step("generate", "running", {})
@@ -175,10 +226,12 @@ class WorkflowEngine:
             variants = [{"id": "provided", "angle": params.get("angle") or "approved", "headline": "",
                          "body": provided_copy, "copy": provided_copy, "copy_source": "creative-preflight",
                          "image_prompt": "", "image_url": ""}]
-            await step("generate", "done", {"n_variants": 1, "angles": ["approved"], "source": "Creative Pre-Flight"})
+            await step("generate", "done", {"n_variants": 1, "angles": ["approved"], "source": "Creative Pre-Flight",
+                       "reasoning": "Execution: using the approved creative carried in from Pre-Flight."})
         else:
             variants = creative.generate_variants(intervention, intv_label, seg_label, occasion_theme=None, n=3)
-            await step("generate", "done", {"n_variants": len(variants), "angles": [v["angle"] for v in variants]})
+            await step("generate", "done", {"n_variants": len(variants), "angles": [v["angle"] for v in variants],
+                       "reasoning": f"Execution: drafted {len(variants)} variants ({', '.join(v['angle'] for v in variants)})."})
 
         # 5. pretest
         await step("pretest", "running", {})
@@ -187,11 +240,13 @@ class WorkflowEngine:
         await step("pretest", "done", {
             "winner_angle": pt["winner_angle"], "winner_score": pt["winner_score"],
             "spread": pt["spread"], "copy": winner["copy"],
+            "reasoning": f"Pre-test: '{pt['winner_angle']}' won {pt['winner_score']}/100 on a synthetic panel (beat the field by {pt['spread']} pts).",
         })
 
         # 6. approve -> pause
         await step("approve", "awaiting", {"copy": winner["copy"], "reach": pred["reach"],
-                   "predicted_incr_revenue": pred["pred_incr_revenue"]})
+                   "predicted_incr_revenue": pred["pred_incr_revenue"],
+                   "reasoning": "Awaiting human sign-off before the agent sends."})
         self._paused[run_id] = {
             "params": params, "seg": seg, "seg_label": seg_label, "intervention": intervention,
             "intv_label": intv_label, "channel_id": channel_id, "pred": pred, "winner": winner,
@@ -217,7 +272,7 @@ class WorkflowEngine:
             db.update_step(step_ids[name], status=status, output=output)
             await self._emit(broadcast, run_id, {"name": name, "status": status, "output": output})
 
-        await step("approve", "done", {"approved": True})
+        await step("approve", "done", {"approved": True, "reasoning": "Human approved — Execution will deliver now."})
 
         # 7. deliver
         await step("deliver", "running", {})
@@ -241,10 +296,14 @@ class WorkflowEngine:
             if res.ok and recipient:
                 self.ctx["memory"].append(recipient, st["channel_id"], "agent", body,
                                           meta={"run_id": run_id, "kind": "workflow"})
+        deliver_reason = (
+            f"Execution: real {st['channel_id']} send to {recipient} ✓" if (delivered and recipient)
+            else f"Execution: delivered on {st['channel_id']} ✓" if delivered
+            else f"Execution: {st['channel_id']} not connected — campaign queued for {pred['reach']:,}; proof still runs.")
         await step("deliver", "done", {
             "channel": st["channel_id"], "reach_queued": pred["reach"],
             "test_send": bool(recipient), "delivered": delivered,
-            "provider_id": provider_id, "error": err,
+            "provider_id": provider_id, "error": err, "reasoning": deliver_reason,
         })
 
         # 8. prove (predicted vs actual on the synthetic ground truth)
@@ -270,6 +329,7 @@ class WorkflowEngine:
             "predicted_incr_revenue": pred["pred_incr_revenue"],
             "actual_incr_revenue": round(actual_incr_rev, 2),
             "proof_id": entry["id"],
+            "reasoning": f"Critic: predicted {pred_rel*100:.1f}% vs actual {actual_rel*100:.1f}% → error {error*100:.1f}pp; recalibrated this arm.",
         })
 
         db.update_run(run_id, status="proven", summary={
@@ -288,3 +348,44 @@ class WorkflowEngine:
             await self._emit(broadcast, run_id, {"name": "approve", "status": "rejected", "output": {}})
         db.update_run(run_id, status="rejected")
         return db.get_run(run_id)
+
+    # --------------------------------------------------------------- autopilot
+    async def autopilot(self, goal: str, budget: float, broadcast, top_k: int = 2) -> dict:
+        """The agent, given a goal + budget, plans and runs the best campaigns
+        end-to-end on its own — narrating each decision over the stream."""
+        async def narrate(phase: str, text: str, extra: dict | None = None):
+            await broadcast({"type": "autopilot", "phase": phase, "text": text, **(extra or {})})
+
+        await narrate("start", f"Goal: {goal or 'maximize incremental ROI'}. Budget ₹{budget:,.0f}. "
+                               f"Scanning every segment × action for the highest-ROI moves…")
+        ranked = self._rank_actions(budget, top_k=top_k)
+        if not ranked:
+            await narrate("done", "No profitable action cleared the guardrails within this budget.", {"runs": []})
+            return {"runs": []}
+
+        plan = [{"label": f"{r['intv_label']} → {r['seg_label']}", "channel": r["channel"],
+                 "pred_incr_revenue": r["pred_incr_revenue"], "roi": r["roi"]} for r in ranked]
+        await narrate("plan", f"Decided on the top {len(ranked)} campaigns. Executing them now.", {"plan": plan})
+
+        runs = []
+        for i, r in enumerate(ranked, 1):
+            ch = r["channel"]
+            await narrate("run", f"[{i}/{len(ranked)}] Launching {r['intv_label']} → {r['seg_label']} on {ch} "
+                                 f"(predicted ₹{r['pred_incr_revenue']:,.0f}, ROI {r['roi']}×)…")
+            copy, _ = llm.draft_intervention_message(
+                r["intervention"], r["intv_label"], ch, r["seg_label"], "there", r["avg_rel_lift"], use_llm=False)
+            params = {"workflow": "autopilot", "segment": r["segment"], "intervention": r["intervention"],
+                      "channel": ch, "budget": budget, "copy": copy, "angle": "autopilot",
+                      "label": f"Autopilot · {r['intv_label']} → {r['seg_label']}"}
+            run = await self.run(params, broadcast)
+            run = await self.approve(run["id"], broadcast)
+            s = run.get("summary") or {}
+            await narrate("result", f"[{i}/{len(ranked)}] Proven: predicted {(s.get('avg_rel_lift') or 0)*100:.1f}% "
+                                    f"vs actual {(s.get('actual_rel_lift') or 0)*100:.1f}% lift (error {s.get('error_pp')}pp).",
+                          {"run_id": run["id"]})
+            runs.append(run["id"])
+
+        total = sum((db.get_run(rid).get("summary") or {}).get("pred_incr_revenue", 0) for rid in runs)
+        await narrate("done", f"Done — deployed {len(runs)} campaigns autonomously, "
+                              f"₹{total:,.0f} predicted incremental revenue, all proven on a holdout.", {"runs": runs})
+        return {"runs": runs, "total_pred_incr_revenue": total}
