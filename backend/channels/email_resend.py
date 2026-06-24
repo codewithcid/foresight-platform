@@ -7,11 +7,10 @@ default; the body is sent as plain text.
 """
 from __future__ import annotations
 
-import os
-
 import requests
 from dotenv import load_dotenv
 
+import appconfig
 import config as C
 from .base import Channel, DeliveryResult
 
@@ -22,7 +21,7 @@ DEFAULT_FROM = "Foresight <onboarding@resend.dev>"
 
 
 def _key() -> str:
-    return os.environ.get("RESEND_API_KEY", "")
+    return appconfig.get("RESEND_API_KEY", "") or ""
 
 
 class Email(Channel):
@@ -38,13 +37,13 @@ class Email(Channel):
 
     def sandbox(self) -> bool:
         # Using the shared onboarding sender = restricted to your own verified inbox.
-        return bool(_key()) and not os.environ.get("RESEND_FROM")
+        return bool(_key()) and not appconfig.get("RESEND_FROM")
 
     def send(self, to: str, body: str, meta: dict | None = None) -> DeliveryResult:
         if not _key():
             return DeliveryResult(ok=False, channel=self.id, to=to, error="Email not configured (RESEND_API_KEY).")
         subject = (meta or {}).get("subject") or "A note from Foresight"
-        sender = os.environ.get("RESEND_FROM") or DEFAULT_FROM
+        sender = appconfig.get("RESEND_FROM") or DEFAULT_FROM
         try:
             r = requests.post(API, headers={"Authorization": f"Bearer {_key()}", "Content-Type": "application/json"},
                               json={"from": sender, "to": [to], "subject": subject, "text": body}, timeout=15)

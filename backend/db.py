@@ -58,6 +58,9 @@ CREATE TABLE IF NOT EXISTS engagement (
     id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL, kind TEXT, channel TEXT,
     to_addr TEXT, run_id INTEGER, detail TEXT
 );
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY, value TEXT
+);
 """
 
 
@@ -281,6 +284,25 @@ def record_engagement(kind: str, channel: str, to_addr: str = "", run_id: int | 
             (time.time(), kind, channel, to_addr, run_id, detail))
         c.commit()
         return cur.lastrowid
+
+
+def set_setting(key: str, value: str) -> None:
+    with _LOCK:
+        c = conn()
+        c.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
+        c.commit()
+
+
+def get_setting(key: str) -> str | None:
+    with _LOCK:
+        r = conn().execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+    return r["value"] if r else None
+
+
+def all_settings() -> dict:
+    with _LOCK:
+        rows = conn().execute("SELECT key, value FROM settings").fetchall()
+    return {r["key"]: r["value"] for r in rows}
 
 
 def recent_engagement(limit: int = 40) -> list[dict]:
