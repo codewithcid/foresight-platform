@@ -57,6 +57,13 @@ class StoreEngine:
     def _escalate_window(self) -> float:
         return _int_setting("ESCALATE_WINDOW_SEC", C.ESCALATE_WINDOW_SEC)
 
+    def _delivery_channel(self):
+        """Prefer Novu (provider-agnostic) if connected; else direct WhatsApp."""
+        nv = channels.get_channel("novu")
+        if nv and nv.configured():
+            return nv
+        return channels.get_channel("whatsapp")
+
     # --------------------------------------------------------------- budget
     @staticmethod
     def _day_start() -> float:
@@ -191,20 +198,29 @@ class StoreEngine:
         proof_id = entry["id"]
         db.discount_create(code, cart_id, percent, run_id, proof_id, expires_ts=time.time() + 86400)
 
-        # Deep link back to the exact cart with the code applied.
+        # Deliver via Novu if connected (it fans out to WhatsApp/SMS/email/…),
+        # else fall back to the direct WhatsApp channel.
+        ch = self._delivery_channel()
+        ch_id = ch.id if ch else "whatsapp"
+
+        # Deep link back to the exact cart with the code applied; tracked for proof.
         store_url = self._store_url().replace("{cart_id}", cart_id)
         dest = f"{store_url}{'&' if '?' in store_url else '?'}fs_code={code}"
-        tracked = tracking.append_link(body, run_id, "whatsapp", phone, url=dest)
+        link = tracking.make_tracked_link(dest, run_id, ch_id, phone)
+        full_body = f"{body} {link}"
 
         delivered, provider, err = False, "", ""
-        ch = channels.get_channel("whatsapp")
         if ch and ch.configured() and phone:
-            res = await asyncio.to_thread(ch.send, phone, tracked, {"run_id": run_id, "kind": "cart_recovery"})
+            meta = {"run_id": run_id, "kind": "cart_recovery",
+                    "subscriber_id": cart.get("customer_id") or cart_id,
+                    "payload": {"name": name, "item": item_name, "percent": percent,
+                                "code": code, "link": link, "value": value}}
+            res = await asyncio.to_thread(ch.send, phone, full_body, meta)
             delivered, provider, err = res.ok, res.provider_id, res.error
-            db.log_channel(channel="whatsapp", to_addr=phone, body=tracked,
+            db.log_channel(channel=ch_id, to_addr=phone, body=full_body,
                            status="sent" if res.ok else "failed", provider_id=provider, error=err,
-                           run_id=run_id, meta={"kind": "cart_recovery", "sandbox": res.sandbox})
-        db.record_engagement("push", "whatsapp", phone, run_id, detail=f"{percent}% / {code}")
+                           run_id=run_id, meta={"kind": "cart_recovery", "via": ch_id})
+        db.record_engagement("push", ch_id, phone, run_id, detail=f"{percent}% / {code}")
         db.cart_update(cart_id, status="pushed", tier=tier_idx, run_id=run_id, proof_id=proof_id,
                        discount_code=code, last_push_ts=time.time())
         db.update_run(run_id, status="pushed", summary={

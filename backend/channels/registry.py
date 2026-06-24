@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from .base import Channel
 from .email_resend import Email
+from .novu_ch import Novu
 from .slack import Slack
 from .telegram import Telegram
 from .twilio_sms import TwilioSMS
@@ -17,6 +18,7 @@ from .twilio_whatsapp import TwilioWhatsApp
 _CHANNELS: dict[str, Channel] = {
     c.id: c
     for c in [
+        Novu(),
         TwilioSMS(),
         TwilioWhatsApp(),
         Slack(),

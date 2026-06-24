@@ -125,7 +125,7 @@ export default function CartRecovery() {
             {nres && <span className="text-xs text-muted-foreground">{nres}</span>}
           </div>
           <p className="text-[11px] text-muted-foreground mt-2">
-            The agent picks a budget-safe discount and sends a deep link to {state.store_url.replace("{cart_id}", "…")}. The number must have joined the Twilio WhatsApp sandbox (or use the paid sender).
+            The agent picks a budget-safe discount and sends a deep link to {state.store_url.replace("{cart_id}", "…")}. Delivery routes through <b className="text-card-foreground/80">Novu</b> if connected (Settings → Connections), otherwise direct WhatsApp.
           </p>
         </CardContent>
       </Card>
