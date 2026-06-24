@@ -176,6 +176,13 @@ def build_tools(ctx: dict) -> list[Tool]:
                           "error_pp": (r.get("summary") or {}).get("error_pp")}
                          for r in db.list_runs(limit)]}
 
+    store = ctx.get("store")
+
+    def store_status() -> dict:
+        if store is None:
+            return {"error": "cart-recovery (Link-Up) unavailable"}
+        return store.state().get("metrics", {})
+
     def proof_summary() -> dict:
         runs = [r for r in db.list_runs(50)
                 if r["status"] == "proven" and (r.get("summary") or {}).get("actual_rel_lift") is not None]
@@ -231,4 +238,6 @@ def build_tools(ctx: dict) -> list[Tool]:
              {"type": "object", "properties": {"limit": {"type": "integer"}}}, list_runs),
         Tool("proof_summary", "Summarize proven campaigns: count, mean predicted-vs-actual error (pp), and total predicted incremental revenue.",
              {"type": "object", "properties": {}}, proof_summary),
+        Tool("store_status", "Link-Up cart-recovery status: carts acted on, recovered, lost, recovery rate, recovered revenue, and discount spend vs budget.",
+             {"type": "object", "properties": {}}, store_status),
     ]

@@ -301,10 +301,15 @@ export async function rejectRun(id: number): Promise<Run> {
 // ---- Settings / connections / mode / auth ----
 export type ConnField = { key: string; set: boolean; masked: string };
 export type Connection = ChannelStatus & { fields: ConnField[] };
+export type AdminBot = {
+  wati_base: string; wati_token_set: boolean; wati_token_masked: string;
+  admins: string; webhook_url: string;
+};
 export type SettingsData = {
   workspace: string; mode: string;
   connections: Connection[];
   limits: { max_actions_per_day: number; daily_budget: number; min_lift_pct: number };
+  admin_bot?: AdminBot;
 };
 export async function getSettings(): Promise<SettingsData> {
   return fetch(`${BASE}/api/settings`).then((r) => r.json());
