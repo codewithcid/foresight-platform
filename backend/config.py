@@ -70,4 +70,4 @@ ABANDON_WINDOW_SEC = 120
 # No purchase this long after a push => escalate the discount (or give up).
 ESCALATE_WINDOW_SEC = 120
 # Default store deep-link template; {cart_id} is substituted. Override in Settings.
-STORE_CART_URL = "https://your-store.example/cart/{cart_id}"
+STORE_CART_URL = "https://foresight-shop.vercel.app/cart/{cart_id}"

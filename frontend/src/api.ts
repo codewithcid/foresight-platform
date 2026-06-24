@@ -361,6 +361,11 @@ export async function setStoreConfig(body: { store_url?: string; regenerate_key?
 export async function simulateCart(): Promise<StoreCart> {
   return fetch(`${BASE}/api/store/simulate`, { method: "POST" }).then((r) => r.json());
 }
+export async function sendNudge(body: { phone: string; name?: string; value?: number; item?: string; cart_id?: string }): Promise<StoreCart> {
+  return fetch(`${BASE}/api/store/nudge`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  }).then((r) => r.json());
+}
 
 export function connectFeed(onMessage: (payload: any) => void): WebSocket {
   const proto = window.location.protocol === "https:" ? "wss" : "ws";

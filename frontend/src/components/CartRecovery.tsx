@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { StoreCart, StoreConfig, StoreState, connectFeed, getStoreConfig, getStoreState, setStoreConfig, simulateCart } from "../api";
+import { StoreCart, StoreConfig, StoreState, connectFeed, getStoreConfig, getStoreState, sendNudge, setStoreConfig, simulateCart } from "../api";
 import { Badge, Card, CardContent, CardDescription, CardHeader, CardHeaderRow, CardTitle, MetricCard } from "../ui/dash";
 import { Bag, Bolt, CheckDouble, Rupee, Target } from "./Icons";
 
@@ -30,6 +30,9 @@ export default function CartRecovery() {
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState("");
   const [urlDraft, setUrlDraft] = useState("");
+  const [nf, setNf] = useState({ name: "", phone: "", value: "", item: "" });
+  const [nbusy, setNbusy] = useState(false);
+  const [nres, setNres] = useState("");
   const wsRef = useRef<WebSocket | null>(null);
 
   function refresh() { getStoreState().then(setState); }
@@ -48,6 +51,16 @@ export default function CartRecovery() {
   }, []);
 
   async function simulate() { setBusy(true); try { await simulateCart(); refresh(); } finally { setBusy(false); } }
+  async function nudge() {
+    if (!nf.phone.trim()) return;
+    setNbusy(true); setNres("");
+    try {
+      const c = await sendNudge({ name: nf.name, phone: nf.phone, value: nf.value ? Number(nf.value) : undefined, item: nf.item || undefined });
+      setNres(c?.discount_code ? `Sent ${c.discount_code} to ${c.phone || nf.phone}` : "Nudge sent.");
+      refresh();
+    } catch { setNres("Couldn’t send — check the number / WhatsApp setup."); }
+    finally { setNbusy(false); }
+  }
   function copy(text: string, what: string) { navigator.clipboard?.writeText(text); setCopied(what); setTimeout(() => setCopied(""), 1500); }
   async function saveUrl() { if (cfg && urlDraft && urlDraft !== cfg.store_url) setCfg(await setStoreConfig({ store_url: urlDraft })); }
   async function regen() { setCfg(await setStoreConfig({ regenerate_key: true })); }
@@ -78,6 +91,40 @@ export default function CartRecovery() {
         <MetricCard icon={<Target size={16} />} label="Discount spend" value={inr(m.budget_spent)} sub={`of ${inr(m.budget_cap)} cap`} />
         <MetricCard icon={<Bolt size={16} />} label="Active carts" value={m.active} sub={`abandon after ${state.abandon_window}s`} />
       </div>
+
+      {/* Manual nudge — safety net */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm flex items-center gap-2"><i className="ri-whatsapp-line text-success" /> Send a discount nudge</CardTitle>
+          <CardDescription className="text-xs">Manually WhatsApp a customer a comeback offer — a safety net if no live cart event has fired.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <label className="text-[11px] text-muted-foreground">Name
+              <input value={nf.name} onChange={(e) => setNf({ ...nf, name: e.target.value })} placeholder="Asha" className="form-input w-full mt-1 text-sm" />
+            </label>
+            <label className="text-[11px] text-muted-foreground">WhatsApp number
+              <input value={nf.phone} onChange={(e) => setNf({ ...nf, phone: e.target.value })} placeholder="+9162…" className="form-input w-full mt-1 text-sm" />
+            </label>
+            <label className="text-[11px] text-muted-foreground">Cart value (₹)
+              <input value={nf.value} onChange={(e) => setNf({ ...nf, value: e.target.value })} type="number" placeholder="1499" className="form-input w-full mt-1 text-sm" />
+            </label>
+            <label className="text-[11px] text-muted-foreground">Item (optional)
+              <input value={nf.item} onChange={(e) => setNf({ ...nf, item: e.target.value })} placeholder="Sneakers" className="form-input w-full mt-1 text-sm" />
+            </label>
+          </div>
+          <div className="flex items-center gap-3 mt-3 flex-wrap">
+            <button onClick={nudge} disabled={nbusy || !nf.phone.trim()}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-success text-ink text-sm font-semibold disabled:opacity-40 hover:opacity-90 transition">
+              <i className="ri-send-plane-fill" /> {nbusy ? "Sending…" : "Send WhatsApp nudge"}
+            </button>
+            {nres && <span className="text-xs text-muted-foreground">{nres}</span>}
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-2">
+            The agent picks a budget-safe discount and sends a deep link to {state.store_url.replace("{cart_id}", "…")}. The number must have joined the Twilio WhatsApp sandbox (or use the paid sender).
+          </p>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Recovery queue */}
