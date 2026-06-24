@@ -20,7 +20,7 @@ import wati
 import workflow as workflow_mod
 from tools import Tool, build_tools
 
-MAX_STEPS = 5
+MAX_STEPS = 8
 ACTION_NAMES = {"run_workflow", "approve_run", "reject_run", "send_message", "send_nudge", "set_mode"}
 YES = {"yes", "y", "confirm", "ok", "okay", "go", "do it", "yep", "sure", "approve", "send it"}
 NO = {"no", "n", "cancel", "stop", "abort", "nope", "nah"}
@@ -153,8 +153,9 @@ def _run(ctx: dict, text: str, history: list) -> dict:
     schemas = [_to_schema(t) for t in all_tools]
     messages = [{"role": "system", "content": SYSTEM + _capabilities_note()}, *history, {"role": "user", "content": text}]
 
-    for _ in range(MAX_STEPS):
-        resp = llm.chat_with_tools(messages, schemas)
+    for step in range(MAX_STEPS):
+        # On the final step, drop the tools so the model MUST answer with the data gathered.
+        resp = llm.chat_with_tools(messages, schemas if step < MAX_STEPS - 1 else [])
         if resp is None:
             return {"reply": "⚠️ Couldn't reach the model just now — try again."}
         msg = resp["choices"][0]["message"]
