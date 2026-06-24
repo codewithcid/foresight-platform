@@ -61,6 +61,17 @@ CREATE TABLE IF NOT EXISTS engagement (
 CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY, value TEXT
 );
+CREATE TABLE IF NOT EXISTS carts (
+    cart_id TEXT PRIMARY KEY, customer_id TEXT, name TEXT, phone TEXT, email TEXT,
+    items TEXT, value REAL, currency TEXT DEFAULT 'INR',
+    status TEXT, tier INTEGER DEFAULT -1, run_id INTEGER, proof_id INTEGER,
+    created_ts REAL, updated_ts REAL, last_push_ts REAL,
+    discount_code TEXT, recovered_value REAL
+);
+CREATE TABLE IF NOT EXISTS discount_codes (
+    code TEXT PRIMARY KEY, cart_id TEXT, percent INTEGER, run_id INTEGER, proof_id INTEGER,
+    issued_ts REAL, expires_ts REAL, redeemed_ts REAL, redeemed_value REAL
+);
 """
 
 
@@ -308,6 +319,98 @@ def all_settings() -> dict:
 def recent_engagement(limit: int = 40) -> list[dict]:
     with _LOCK:
         rows = conn().execute("SELECT * FROM engagement ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+    return [dict(r) for r in rows]
+
+
+# ----------------------------------------------------------------- cart recovery
+_CART_COLS = ["cart_id", "customer_id", "name", "phone", "email", "items", "value",
+              "currency", "status", "tier", "run_id", "proof_id", "created_ts",
+              "updated_ts", "last_push_ts", "discount_code", "recovered_value"]
+
+
+def _cart_row(r: sqlite3.Row) -> dict:
+    d = dict(r)
+    d["items"] = _loads(d.get("items")) or []
+    return d
+
+
+def cart_get(cart_id: str) -> dict | None:
+    with _LOCK:
+        r = conn().execute("SELECT * FROM carts WHERE cart_id = ?", (cart_id,)).fetchone()
+    return _cart_row(r) if r else None
+
+
+def cart_upsert(cart_id: str, fields: dict) -> dict:
+    """Insert or merge a cart row; items is stored as JSON."""
+    with _LOCK:
+        c = conn()
+        existing = c.execute("SELECT * FROM carts WHERE cart_id = ?", (cart_id,)).fetchone()
+        cur = dict(existing) if existing else {col: None for col in _CART_COLS}
+        cur["cart_id"] = cart_id
+        for k, v in fields.items():
+            if k == "items":
+                v = _dumps(v)
+            cur[k] = v
+        now = time.time()
+        if not existing:
+            cur["created_ts"] = now
+        cur["updated_ts"] = fields.get("updated_ts", now)
+        c.execute(
+            f"INSERT OR REPLACE INTO carts ({','.join(_CART_COLS)}) VALUES ({','.join('?' for _ in _CART_COLS)})",
+            tuple(cur.get(col) for col in _CART_COLS))
+        c.commit()
+    return cart_get(cart_id)
+
+
+def cart_update(cart_id: str, **fields) -> None:
+    if not fields:
+        return
+    with _LOCK:
+        c = conn()
+        sets = ", ".join(f"{k} = ?" for k in fields)
+        c.execute(f"UPDATE carts SET {sets} WHERE cart_id = ?", (*fields.values(), cart_id))
+        c.commit()
+
+
+def carts_list(limit: int = 100) -> list[dict]:
+    with _LOCK:
+        rows = conn().execute("SELECT * FROM carts ORDER BY updated_ts DESC LIMIT ?", (limit,)).fetchall()
+    return [_cart_row(r) for r in rows]
+
+
+def carts_by_status(status: str) -> list[dict]:
+    with _LOCK:
+        rows = conn().execute("SELECT * FROM carts WHERE status = ?", (status,)).fetchall()
+    return [_cart_row(r) for r in rows]
+
+
+def discount_create(code: str, cart_id: str, percent: int, run_id: int | None,
+                    proof_id: int | None, expires_ts: float) -> None:
+    with _LOCK:
+        c = conn()
+        c.execute("INSERT OR REPLACE INTO discount_codes "
+                  "(code, cart_id, percent, run_id, proof_id, issued_ts, expires_ts) VALUES (?,?,?,?,?,?,?)",
+                  (code, cart_id, percent, run_id, proof_id, time.time(), expires_ts))
+        c.commit()
+
+
+def discount_get(code: str) -> dict | None:
+    with _LOCK:
+        r = conn().execute("SELECT * FROM discount_codes WHERE code = ?", (code,)).fetchone()
+    return dict(r) if r else None
+
+
+def discount_redeem(code: str, value: float) -> None:
+    with _LOCK:
+        c = conn()
+        c.execute("UPDATE discount_codes SET redeemed_ts = ?, redeemed_value = ? WHERE code = ?",
+                  (time.time(), value, code))
+        c.commit()
+
+
+def discounts_issued_since(ts: float) -> list[dict]:
+    with _LOCK:
+        rows = conn().execute("SELECT * FROM discount_codes WHERE issued_ts >= ?", (ts,)).fetchall()
     return [dict(r) for r in rows]
 
 

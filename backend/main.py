@@ -14,7 +14,7 @@ import asyncio
 from contextlib import asynccontextmanager
 
 import pandas as pd
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, File, Form, Header, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -41,6 +41,7 @@ import llm
 import nlp
 import occasions as O
 import seed
+import store as store_mod
 import supervisor
 import tracking
 import workflow as workflow_mod
@@ -104,6 +105,7 @@ async def lifespan(app: FastAPI):
 
     STATE["creative_ledger"] = creative_proof.CreativeLedger()
     STATE["workflow"] = workflow_mod.WorkflowEngine(STATE)
+    STATE["store"] = store_mod.StoreEngine(STATE, broadcast)
     seeded = seed.seed_if_empty()  # populate Proof/Command on a fresh DB
 
     STATE["tools"] = build_tools(STATE)
@@ -114,8 +116,10 @@ async def lifespan(app: FastAPI):
           f"llm={'groq' if llm.has_key() else 'template-fallback'}, images={'pexels' if images.has_key() else 'illustrated'}")
     if appconfig.get("MODE", "sandbox") != "live":
         simulator.start()  # sandbox traffic; paused in Live mode
+    STATE["store"].start()  # cart-recovery sweeper (always on — it's the product)
     yield
     simulator.pause()
+    STATE["store"].stop()
     STATE.clear()
 
 
@@ -740,6 +744,60 @@ def auth_login(req: LoginRequest):
         return {"ok": True, "token": secrets.token_urlsafe(24), "email": email,
                 "workspace": appconfig.get("WORKSPACE_NAME", "Foresight")}
     raise HTTPException(401, "Invalid email or password")
+
+
+# ------------------------------------------------------- cart-recovery store API
+class StoreEvent(BaseModel):
+    type: str
+    cart_id: str
+    customer: dict | None = None
+    items: list | None = None
+    value: float | None = None
+    currency: str | None = "INR"
+    discount_code: str | None = None
+
+
+@app.post("/api/store/event")
+async def store_event(ev: StoreEvent, x_foresight_key: str = Header(default="")):
+    store = STATE["store"]
+    if x_foresight_key != store.ingest_key():
+        raise HTTPException(401, "Invalid or missing X-Foresight-Key")
+    return await store.handle_event(ev.model_dump())
+
+
+@app.get("/api/discount/validate")
+def discount_validate(code: str):
+    return STATE["store"].validate_code(code)
+
+
+@app.get("/api/store/state")
+def store_state():
+    return STATE["store"].state()
+
+
+@app.get("/api/store/config")
+def store_config():
+    s = STATE["store"]
+    return {"ingest_key": s.ingest_key(), "store_url": s._store_url(), "base_url": tracking.PUBLIC_BASE}
+
+
+class StoreConfigUpdate(BaseModel):
+    store_url: str | None = None
+    regenerate_key: bool | None = None
+
+
+@app.post("/api/store/config")
+def store_config_set(req: StoreConfigUpdate):
+    if req.store_url:
+        db.set_setting("STORE_CART_URL", req.store_url)
+    if req.regenerate_key:
+        db.set_setting("INGEST_API_KEY", "fs_" + secrets.token_urlsafe(18))
+    return store_config()
+
+
+@app.post("/api/store/simulate")
+async def store_simulate():
+    return await STATE["store"].simulate()
 
 
 # ------------------------------------------------------------------- sim ctl

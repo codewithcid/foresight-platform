@@ -9,6 +9,7 @@ import SpendPlanner from "./components/SpendPlanner";
 import ByoData from "./components/ByoData";
 import Channels from "./components/Channels";
 import Workflows from "./components/Workflows";
+import CartRecovery from "./components/CartRecovery";
 import Proof from "./components/Proof";
 import Settings from "./components/Settings";
 import Copilot from "./components/Copilot";
@@ -20,6 +21,7 @@ import { pageTransition } from "./ui/motion";
 const TITLES: Record<Tab, string> = {
   dashboard: "Command",
   workflows: "Workflows",
+  store: "Cart Recovery",
   planner: "Spend Planner",
   byocsv: "Audience & Uplift",
   creative: "Creative Pre-Flight",
@@ -33,6 +35,7 @@ const TITLES: Record<Tab, string> = {
 const SUBTITLES: Record<Tab, string> = {
   dashboard: "Live cockpit — watch predicted ROI being acted on, and the loop learn.",
   workflows: "Activate — orchestrate the ROI-maximizing action, end to end.",
+  store: "Recover abandoned carts on a real store — push, prove, escalate within budget.",
   planner: "Anticipate — allocate budget to the highest-predicted-ROI segments.",
   byocsv: "Anticipate — the causal model that predicts each customer's ROI.",
   creative: "Activate — predict which creative lifts ROI, before you spend.",
@@ -82,6 +85,7 @@ export default function App({ onHome, onLogout }: { onHome?: () => void; onLogou
               >
                 {tab === "dashboard" && <Dashboard meta={meta} />}
                 {tab === "workflows" && <Workflows />}
+                {tab === "store" && <CartRecovery />}
                 {tab === "planner" && <SpendPlanner />}
                 {tab === "byocsv" && <ByoData />}
                 {tab === "channels" && <Channels />}

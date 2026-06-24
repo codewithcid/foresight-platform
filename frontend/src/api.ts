@@ -330,6 +330,38 @@ export async function login(email: string, password: string): Promise<{ ok?: boo
   return r.json();
 }
 
+// ---- Cart recovery (third-party store) ----
+export type StoreCart = {
+  cart_id: string; customer_id?: string; name?: string; phone?: string; email?: string;
+  items: { name: string; qty: number; price: number }[]; value: number; currency: string;
+  status: string; tier: number; discount_code?: string; recovered_value?: number;
+  created_ts?: number; updated_ts?: number; last_push_ts?: number;
+};
+export type StoreMetrics = {
+  active: number; pushed: number; awaiting: number; recovered: number; lost: number;
+  recovery_rate: number | null; recovered_value: number; budget_spent: number; budget_cap: number;
+};
+export type StoreState = {
+  carts: StoreCart[]; metrics: StoreMetrics; ladder: number[]; abandon_window: number;
+  ingest_key_set: boolean; store_url: string;
+};
+export type StoreConfig = { ingest_key: string; store_url: string; base_url: string };
+
+export async function getStoreState(): Promise<StoreState> {
+  return fetch(`${BASE}/api/store/state`).then((r) => r.json());
+}
+export async function getStoreConfig(): Promise<StoreConfig> {
+  return fetch(`${BASE}/api/store/config`).then((r) => r.json());
+}
+export async function setStoreConfig(body: { store_url?: string; regenerate_key?: boolean }): Promise<StoreConfig> {
+  return fetch(`${BASE}/api/store/config`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  }).then((r) => r.json());
+}
+export async function simulateCart(): Promise<StoreCart> {
+  return fetch(`${BASE}/api/store/simulate`, { method: "POST" }).then((r) => r.json());
+}
+
 export function connectFeed(onMessage: (payload: any) => void): WebSocket {
   const proto = window.location.protocol === "https:" ? "wss" : "ws";
   const ws = new WebSocket(`${proto}://${window.location.host}/ws/feed`);
