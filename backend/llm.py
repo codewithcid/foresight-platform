@@ -268,6 +268,8 @@ def chat_with_tools(messages: list[dict], tools: list[dict], max_tokens: int = 7
     """Tool-calling for the Supervisor's ReAct loop. Tries the NVIDIA pool
     (capable models, fresh quota) and falls back to Groq. Returns the raw
     OpenAI-format response dict, or None if every provider fails."""
+    # Empty tools => a plain completion (so a caller can force a final written answer).
+    tool_kw = {"tools": tools, "tool_choice": "auto"} if tools else {}
     for model, env in NVIDIA_TOOL_POOL:
         key = os.environ.get(env)
         if not key:
@@ -276,7 +278,7 @@ def chat_with_tools(messages: list[dict], tools: list[dict], max_tokens: int = 7
             resp = requests.post(
                 NVIDIA_URL,
                 headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-                json={"model": model, "messages": messages, "tools": tools, "tool_choice": "auto",
+                json={"model": model, "messages": messages, **tool_kw,
                       "temperature": 0.2, "max_tokens": max_tokens, "stream": False},
                 timeout=45,
             )
@@ -292,7 +294,7 @@ def chat_with_tools(messages: list[dict], tools: list[dict], max_tokens: int = 7
         resp = requests.post(
             GROQ_URL,
             headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-            json={"model": GROQ_MODEL, "messages": messages, "tools": tools, "tool_choice": "auto",
+            json={"model": GROQ_MODEL, "messages": messages, **tool_kw,
                   "temperature": 0.2, "max_tokens": max_tokens},
             timeout=20,
         )
