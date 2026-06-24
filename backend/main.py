@@ -11,6 +11,8 @@ concierge, the CRM campaign drafts, and explainability.
 from __future__ import annotations
 
 import asyncio
+import json
+import time
 from contextlib import asynccontextmanager
 
 import pandas as pd
@@ -830,28 +832,58 @@ def store_reset():
 
 
 # ------------------------------------------------- admin WhatsApp bot (Wati)
+WATI_DEBUG: dict = {"inbound": None, "outbound": None}
+
+
 @app.get("/api/webhooks/wati")
 def wati_verify():
     return {"ok": True}
 
 
+@app.get("/api/wati/debug")
+def wati_debug():
+    return {
+        "config": {"base": appconfig.get("WATI_BASE_URL", "") or "",
+                   "token_set": appconfig.is_set("WATI_ACCESS_TOKEN"),
+                   "admins": appconfig.get("ADMIN_WHATSAPP_NUMBERS", "") or ""},
+        "last_inbound": WATI_DEBUG["inbound"],
+        "last_outbound": WATI_DEBUG["outbound"],
+    }
+
+
 @app.post("/api/webhooks/wati")
 async def wati_webhook(request: Request):
+    raw = await request.body()
     try:
-        data = await request.json()
+        data = json.loads(raw or b"{}")
     except Exception:
-        form = await request.form()
-        data = dict(form)
-    wa_id = str(data.get("waId") or data.get("waid") or data.get("phone") or "")
-    text = str(data.get("text") or data.get("messageText") or "").strip()
+        try:
+            data = dict(await request.form())
+        except Exception:
+            data = {}
+    if not isinstance(data, dict):
+        data = {}
+    wa_id = str(data.get("waId") or data.get("waid") or data.get("phone")
+                or (data.get("contact") or {}).get("waId", "") or "")
+    text = str(data.get("text") or data.get("messageText")
+               or (data.get("message") or {}).get("text", "") or "").strip()
     owner = str(data.get("owner")).lower() in ("true", "1")  # owner=true => our own outbound (echo)
+    event = str(data.get("eventType") or data.get("type") or "")
+    WATI_DEBUG["inbound"] = {
+        "ts": time.time(), "keys": list(data.keys()),
+        "raw": (raw.decode("utf-8", "replace")[:1500] if raw else ""),
+        "wa_id": wa_id, "text": text[:200], "owner": owner, "event": event,
+        "is_admin": whatsapp_admin.is_admin(wa_id) if wa_id else False,
+    }
     if owner or not text or not wa_id:
         return {"ok": True, "ignored": True}
     if not whatsapp_admin.is_admin(wa_id):
-        wati.send_session_message(wa_id, "⛔ This Foresight admin assistant is restricted to authorized numbers.")
+        ok, err = wati.send_session_message(wa_id, "⛔ This Foresight admin assistant is restricted to authorized numbers.")
+        WATI_DEBUG["outbound"] = {"ts": time.time(), "to": wa_id, "ok": ok, "error": err, "note": "unauthorized"}
         return {"ok": True, "unauthorized": True}
     reply = await asyncio.to_thread(whatsapp_admin.handle, STATE, wa_id, text)
     ok, err = wati.send_session_message(wa_id, reply)
+    WATI_DEBUG["outbound"] = {"ts": time.time(), "to": wa_id, "ok": ok, "error": err, "reply": reply[:300]}
     return {"ok": True, "reply": reply, "delivered": ok, "error": err or None}
 
 
