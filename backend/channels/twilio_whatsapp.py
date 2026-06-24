@@ -1,8 +1,7 @@
 """Real WhatsApp over Twilio (dedicated number, or the shared public sandbox)."""
 from __future__ import annotations
 
-import os
-
+import appconfig
 from . import _twilio
 from .base import Channel, DeliveryResult
 
@@ -22,13 +21,13 @@ class TwilioWhatsApp(Channel):
 
     def _from(self) -> str:
         # Dedicated number if provided, else the public Twilio sandbox sender.
-        return os.environ.get("TWILIO_WHATSAPP_FROM", "") or _twilio.WHATSAPP_SANDBOX_FROM
+        return appconfig.get("TWILIO_WHATSAPP_FROM", "") or _twilio.WHATSAPP_SANDBOX_FROM
 
     def configured(self) -> bool:
         return _twilio.has_account()
 
     def sandbox(self) -> bool:
-        return not os.environ.get("TWILIO_WHATSAPP_FROM")
+        return not appconfig.get("TWILIO_WHATSAPP_FROM")
 
     def send(self, to: str, body: str, meta: dict | None = None) -> DeliveryResult:
         ok, pid, err = _twilio.send_message(_wa(self._from()), _wa(to), body)

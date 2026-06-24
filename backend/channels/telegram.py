@@ -6,11 +6,10 @@ user/chat that has messaged it first — the recipient is a numeric chat_id (the
 """
 from __future__ import annotations
 
-import os
-
 import requests
 from dotenv import load_dotenv
 
+import appconfig
 import config as C
 from .base import Channel, DeliveryResult
 
@@ -18,7 +17,7 @@ load_dotenv(C.ROOT / "backend" / ".env")
 
 
 def _token() -> str:
-    return os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    return appconfig.get("TELEGRAM_BOT_TOKEN", "") or ""
 
 
 class Telegram(Channel):
@@ -33,7 +32,7 @@ class Telegram(Channel):
         return bool(_token())
 
     def send(self, to: str, body: str, meta: dict | None = None) -> DeliveryResult:
-        chat_id = (to or os.environ.get("TELEGRAM_CHAT_ID", "")).strip()
+        chat_id = (to or appconfig.get("TELEGRAM_CHAT_ID", "") or "").strip()
         if not _token():
             return DeliveryResult(ok=False, channel=self.id, to=chat_id, error="Telegram not configured (TELEGRAM_BOT_TOKEN).")
         if not chat_id:

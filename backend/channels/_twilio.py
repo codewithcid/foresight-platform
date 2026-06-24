@@ -5,11 +5,10 @@ WhatsApp share one account; they differ only in the `From`/`To` prefix.
 """
 from __future__ import annotations
 
-import os
-
 import requests
 from dotenv import load_dotenv
 
+import appconfig
 import config as C
 
 load_dotenv(C.ROOT / "backend" / ".env")
@@ -20,11 +19,11 @@ WHATSAPP_SANDBOX_FROM = "whatsapp:+14155238886"
 
 
 def sid() -> str:
-    return os.environ.get("TWILIO_ACCOUNT_SID", "")
+    return appconfig.get("TWILIO_ACCOUNT_SID", "") or ""
 
 
 def token() -> str:
-    return os.environ.get("TWILIO_AUTH_TOKEN", "")
+    return appconfig.get("TWILIO_AUTH_TOKEN", "") or ""
 
 
 def has_account() -> bool:

@@ -20,6 +20,9 @@ from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse,
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+import secrets
+
+import appconfig
 import byocsv
 import catalog
 import channels
@@ -109,7 +112,8 @@ async def lifespan(app: FastAPI):
     print(f"[foresight] ready: {len(customers):,} customers, {len(timeline):,} timeline events, "
           f"{len(catalog.PRODUCTS)} products ({photo_count} with real photos), {len(STATE['tools'])} agent tools, "
           f"llm={'groq' if llm.has_key() else 'template-fallback'}, images={'pexels' if images.has_key() else 'illustrated'}")
-    simulator.start()
+    if appconfig.get("MODE", "sandbox") != "live":
+        simulator.start()  # sandbox traffic; paused in Live mode
     yield
     simulator.pause()
     STATE.clear()
@@ -665,6 +669,77 @@ async def workflows_reject(run_id: int):
 async def agent_autopilot(req: AutopilotRequest):
     budget = float(req.budget or C.DAILY_BUDGET_USD)
     return await STATE["workflow"].autopilot(req.goal or "", budget, broadcast)
+
+
+# ------------------------------------------------------------- settings + auth
+def _settings_payload() -> dict:
+    return {
+        "workspace": appconfig.get("WORKSPACE_NAME", "Foresight"),
+        "mode": appconfig.get("MODE", "sandbox"),
+        "connections": [
+            {**c.status(), "fields": [
+                {"key": k, "set": appconfig.is_set(k), "masked": appconfig.masked(k)} for k in c.needs
+            ]}
+            for c in channels.all_channels()
+        ],
+        "limits": {
+            "max_actions_per_day": C.MAX_ACTIONS_PER_CUSTOMER_PER_DAY,
+            "daily_budget": C.DAILY_BUDGET_USD,
+            "min_lift_pct": round(C.MIN_REL_LIFT_TO_ACT * 100, 1),
+        },
+    }
+
+
+@app.get("/api/settings")
+def settings_get():
+    return _settings_payload()
+
+
+class SettingsUpdate(BaseModel):
+    updates: dict[str, str]
+
+
+@app.post("/api/settings")
+def settings_set(req: SettingsUpdate):
+    # Ignore masked placeholders so a re-save doesn't overwrite a real key with dots.
+    clean = {k: v for k, v in req.updates.items() if v and "•" not in v}
+    appconfig.set_many(clean)
+    return _settings_payload()
+
+
+class ModeRequest(BaseModel):
+    mode: str
+
+
+@app.post("/api/mode")
+def set_mode(req: ModeRequest):
+    mode = "live" if req.mode == "live" else "sandbox"
+    db.set_setting("MODE", mode)
+    sim = STATE.get("simulator")
+    if sim:
+        sim.pause() if mode == "live" else sim.start()
+    return {"mode": mode, "sandbox_running": bool(sim and sim.running)}
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+@app.get("/api/auth/config")
+def auth_config():
+    return {"workspace": appconfig.get("WORKSPACE_NAME", "Foresight"),
+            "demo_email": appconfig.get("AUTH_EMAIL", "demo@foresight.ai")}
+
+
+@app.post("/api/auth/login")
+def auth_login(req: LoginRequest):
+    email = appconfig.get("AUTH_EMAIL", "demo@foresight.ai") or ""
+    pw = appconfig.get("AUTH_PASSWORD", "foresight") or ""
+    if req.email.strip().lower() == email.lower() and req.password == pw:
+        return {"ok": True, "token": secrets.token_urlsafe(24), "email": email,
+                "workspace": appconfig.get("WORKSPACE_NAME", "Foresight")}
+    raise HTTPException(401, "Invalid email or password")
 
 
 # ------------------------------------------------------------------- sim ctl

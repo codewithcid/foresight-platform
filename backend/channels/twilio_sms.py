@@ -1,8 +1,7 @@
 """Real SMS over Twilio."""
 from __future__ import annotations
 
-import os
-
+import appconfig
 from . import _twilio
 from .base import Channel, DeliveryResult
 
@@ -15,7 +14,7 @@ class TwilioSMS(Channel):
     needs = ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_SMS_FROM"]
 
     def _from(self) -> str:
-        return os.environ.get("TWILIO_SMS_FROM", "")
+        return appconfig.get("TWILIO_SMS_FROM", "") or ""
 
     def configured(self) -> bool:
         return _twilio.has_account() and bool(self._from())

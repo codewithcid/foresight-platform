@@ -7,11 +7,10 @@ a public URL (wired automatically once deployed in Phase 6).
 """
 from __future__ import annotations
 
-import os
-
 import requests
 from dotenv import load_dotenv
 
+import appconfig
 import config as C
 from .base import Channel, DeliveryResult
 
@@ -21,11 +20,11 @@ API = "https://slack.com/api/chat.postMessage"
 
 
 def _token() -> str:
-    return os.environ.get("SLACK_BOT_TOKEN", "")
+    return appconfig.get("SLACK_BOT_TOKEN", "") or ""
 
 
 def _channel() -> str:
-    return os.environ.get("SLACK_CHANNEL", "")
+    return appconfig.get("SLACK_CHANNEL", "") or ""
 
 
 def _post(blocks: list | None = None, text: str = "") -> tuple[bool, str, str]:
