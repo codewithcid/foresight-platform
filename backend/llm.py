@@ -264,45 +264,56 @@ NVIDIA_TOOL_POOL = [
 ]
 
 
-def chat_with_tools(messages: list[dict], tools: list[dict], max_tokens: int = 700) -> dict | None:
-    """Tool-calling for the Supervisor's ReAct loop. Tries the NVIDIA pool
-    (capable models, fresh quota) and falls back to Groq. Returns the raw
-    OpenAI-format response dict, or None if every provider fails."""
+def chat_with_tools(messages: list[dict], tools: list[dict], max_tokens: int = 700,
+                    prefer_groq: bool = False) -> dict | None:
+    """Tool-calling for ReAct loops. Tries the NVIDIA pool + Groq; set
+    prefer_groq=True for latency-sensitive callers (Groq is much faster)."""
     # Empty tools => a plain completion (so a caller can force a final written answer).
     tool_kw = {"tools": tools, "tool_choice": "auto"} if tools else {}
-    for model, env in NVIDIA_TOOL_POOL:
-        key = os.environ.get(env)
+
+    def _groq():
+        key = os.environ.get("GROQ_API_KEY")
         if not key:
-            continue
+            return None
         try:
             resp = requests.post(
-                NVIDIA_URL,
+                GROQ_URL,
                 headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-                json={"model": model, "messages": messages, **tool_kw,
-                      "temperature": 0.2, "max_tokens": max_tokens, "stream": False},
-                timeout=45,
+                json={"model": GROQ_MODEL, "messages": messages, **tool_kw,
+                      "temperature": 0.2, "max_tokens": max_tokens},
+                timeout=20,
             )
             resp.raise_for_status()
             return resp.json()
-        except Exception as exc:  # noqa: BLE001 - rotate to next provider
-            print(f"[llm] NVIDIA {model} tool-call failed, rotating: {str(exc)[:80]}")
-            continue
-    key = os.environ.get("GROQ_API_KEY")
-    if not key:
+        except Exception as exc:  # noqa: BLE001
+            print(f"[llm] Groq tool-calling failed: {str(exc)[:80]}")
+            return None
+
+    def _nvidia():
+        for model, env in NVIDIA_TOOL_POOL:
+            key = os.environ.get(env)
+            if not key:
+                continue
+            try:
+                resp = requests.post(
+                    NVIDIA_URL,
+                    headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                    json={"model": model, "messages": messages, **tool_kw,
+                          "temperature": 0.2, "max_tokens": max_tokens, "stream": False},
+                    timeout=45,
+                )
+                resp.raise_for_status()
+                return resp.json()
+            except Exception as exc:  # noqa: BLE001 - rotate to next provider
+                print(f"[llm] NVIDIA {model} tool-call failed, rotating: {str(exc)[:80]}")
+                continue
         return None
-    try:
-        resp = requests.post(
-            GROQ_URL,
-            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-            json={"model": GROQ_MODEL, "messages": messages, **tool_kw,
-                  "temperature": 0.2, "max_tokens": max_tokens},
-            timeout=20,
-        )
-        resp.raise_for_status()
-        return resp.json()
-    except Exception as exc:  # noqa: BLE001
-        print(f"[llm] Groq tool-calling fallback failed: {exc}")
-        return None
+
+    for provider in ([_groq, _nvidia] if prefer_groq else [_nvidia, _groq]):
+        out = provider()
+        if out is not None:
+            return out
+    return None
 
 
 def style_rationale(first_name: str, segment_label: str, occasion_label: str | None,
