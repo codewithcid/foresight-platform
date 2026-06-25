@@ -168,6 +168,51 @@ def _format_result(name: str, res: dict) -> str:
     return "✅ Done.\n" + "\n".join(f"• {k}: {v}" for k, v in (res or {}).items())
 
 
+def _inr(x) -> str:
+    try:
+        return "₹" + format(int(round(float(x or 0))), ",")
+    except (TypeError, ValueError):
+        return "₹0"
+
+
+def _fast(ctx: dict, tl: str) -> str | None:
+    """Instant answers for the common queries — no LLM round-trips, no delay."""
+    _, by = _tools(ctx)
+
+    def call(name):
+        t = by.get(name)
+        try:
+            return t.fn() if t else {}
+        except Exception:  # noqa: BLE001
+            return {}
+
+    if tl in ("status", "/status", "summary", "overview"):
+        p, s = call("proof_summary"), call("store_status")
+        rate = f" (*{s.get('recovery_rate')}%*)" if s.get("recovery_rate") is not None else ""
+        return ("📊 *Foresight status*\n"
+                f"• Proven campaigns: *{p.get('proven_runs', 0)}*, mean error *{p.get('mean_error_pp', '–')}pp*\n"
+                f"• Predicted incremental revenue: *{_inr(p.get('total_predicted_incr_revenue'))}*\n"
+                f"• Cart recovery: *{s.get('recovered', 0)}* recovered / *{s.get('lost', 0)}* lost{rate}\n"
+                f"• Recovered revenue *{_inr(s.get('recovered_value'))}* · discount spend *{_inr(s.get('budget_spent'))}*")
+    if tl in ("carts", "cart", "recovery", "link-up", "linkup"):
+        s = call("store_status")
+        rate = f" (*{s.get('recovery_rate')}%*)" if s.get("recovery_rate") is not None else ""
+        return ("🛒 *Cart recovery*\n"
+                f"• Acted on *{s.get('pushed', 0)}* · awaiting *{s.get('awaiting', 0)}*\n"
+                f"• Recovered *{s.get('recovered', 0)}* / lost *{s.get('lost', 0)}*{rate}\n"
+                f"• Recovered *{_inr(s.get('recovered_value'))}* · spend *{_inr(s.get('budget_spent'))}* of *{_inr(s.get('budget_cap'))}*")
+    if tl in ("proof", "calibration", "accuracy"):
+        p = call("proof_summary")
+        return ("✅ *Proof*\n"
+                f"• Proven campaigns: *{p.get('proven_runs', 0)}*\n"
+                f"• Mean predicted-vs-actual error: *{p.get('mean_error_pp', '–')}pp*\n"
+                f"• Predicted incremental revenue: *{_inr(p.get('total_predicted_incr_revenue'))}*")
+    if tl in ("channels", "channel"):
+        rows = call("channel_status").get("channels", [])
+        return "📡 *Channels*\n" + "\n".join(f"• {c['id']}: {c['mode']}" for c in rows)
+    return None
+
+
 def _run(ctx: dict, text: str, history: list) -> dict:
     if not llm.has_key():
         return {"reply": "⚠️ The reasoning model isn't configured on the server."}
@@ -177,7 +222,7 @@ def _run(ctx: dict, text: str, history: list) -> dict:
 
     for step in range(MAX_STEPS):
         # On the final step, drop the tools so the model MUST answer with the data gathered.
-        resp = llm.chat_with_tools(messages, schemas if step < MAX_STEPS - 1 else [])
+        resp = llm.chat_with_tools(messages, schemas if step < MAX_STEPS - 1 else [], prefer_groq=True)
         if resp is None:
             return {"reply": "⚠️ Couldn't reach the model just now — try again."}
         msg = resp["choices"][0]["message"]

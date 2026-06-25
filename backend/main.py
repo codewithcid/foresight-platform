@@ -126,9 +126,12 @@ async def lifespan(app: FastAPI):
     try:
         from channels import telegram as _tg
         if _tg._token():
-            ok, info = _tg.set_webhook(tracking.PUBLIC_BASE + "/api/webhooks/telegram")
-            print(f"[telegram] webhook -> {tracking.PUBLIC_BASE}/api/webhooks/telegram : ok={ok} {info}")
+            _url = tracking.PUBLIC_BASE + "/api/webhooks/telegram"
+            ok, info = _tg.set_webhook(_url)
+            TG_DEBUG["set_webhook"] = {"ok": ok, "info": info, "url": _url}
+            print(f"[telegram] webhook -> {_url} : ok={ok} {info}")
     except Exception as e:  # noqa: BLE001
+        TG_DEBUG["set_webhook"] = {"ok": False, "info": str(e)}
         print("[telegram] webhook setup failed:", e)
     yield
     simulator.pause()
@@ -553,14 +556,23 @@ async def webhook_telegram(request: Request):
     msg = update.get("message") or update.get("edited_message") or {}
     chat_id = str((msg.get("chat") or {}).get("id", ""))
     text = (msg.get("text") or "").strip()
-    if chat_id and text:
-        ch = channels.get_channel("telegram")
-        if whatsapp_admin.is_admin_telegram(chat_id):
-            reply = await asyncio.to_thread(whatsapp_admin.handle, STATE, chat_id, text)
-            if ch:
-                ch.send(chat_id, reply, meta={"inbound_reply": True, "markdown": True})
-        elif ch:
+    TG_DEBUG["last_inbound"] = {"ts": time.time(), "chat_id": chat_id, "text": text[:200],
+                               "is_admin": whatsapp_admin.is_admin_telegram(chat_id) if chat_id else False}
+    if not (chat_id and text):
+        return {"ok": True}
+    from channels import telegram as _tg
+    ch = channels.get_channel("telegram")
+    if not whatsapp_admin.is_admin_telegram(chat_id):
+        if ch:
             ch.send(chat_id, f"⛔ This Foresight admin assistant is restricted. Your Telegram ID is {chat_id} — ask an admin to allow-list it.")
+        return {"ok": True}
+    # Instant "Thinking…" so the wait feels responsive, then edit it into the answer.
+    placeholder = ch.send(chat_id, "💭 _Thinking…_", meta={"markdown": True}) if ch else None
+    reply = await asyncio.to_thread(whatsapp_admin.handle, STATE, chat_id, text)
+    mid = placeholder.provider_id if (placeholder and placeholder.ok) else ""
+    if not (ch and mid and _tg.edit_message(chat_id, mid, reply)):
+        if ch:
+            ch.send(chat_id, reply, meta={"inbound_reply": True, "markdown": True})
     return {"ok": True}
 
 
@@ -847,6 +859,15 @@ def store_reset():
 
 # ------------------------------------------------- admin WhatsApp bot (Wati)
 WATI_DEBUG: dict = {"inbound": None, "outbound": None}
+TG_DEBUG: dict = {"set_webhook": None, "last_inbound": None}
+
+
+@app.get("/api/telegram/debug")
+def telegram_debug():
+    from channels import telegram as _tg
+    return {"token_set": bool(_tg._token()), "set_webhook": TG_DEBUG["set_webhook"],
+            "last_inbound": TG_DEBUG["last_inbound"], "webhook_info": _tg.get_webhook_info(),
+            "admin_ids": appconfig.get("ADMIN_TELEGRAM_IDS", "") or "(open)"}
 
 
 @app.get("/api/webhooks/wati")

@@ -33,6 +33,34 @@ def set_webhook(url: str) -> tuple[bool, str]:
         return False, str(e)
 
 
+def edit_message(chat_id: str, message_id: str, text: str, markdown: bool = True) -> bool:
+    """Replace an earlier message (e.g. turn the 'Thinking…' note into the answer)."""
+    if not _token() or not message_id:
+        return False
+    url = f"https://api.telegram.org/bot{_token()}/editMessageText"
+    payload = {"chat_id": chat_id, "message_id": message_id, "text": text}
+    if markdown:
+        payload["parse_mode"] = "Markdown"
+    try:
+        data = requests.post(url, json=payload, timeout=15).json()
+        if not data.get("ok") and markdown:  # unbalanced markdown -> retry plain
+            data = requests.post(url, json={"chat_id": chat_id, "message_id": message_id, "text": text}, timeout=15).json()
+        return bool(data.get("ok"))
+    except requests.RequestException:
+        return False
+
+
+def get_webhook_info() -> dict:
+    """Ask Telegram what webhook (if any) is registered + last delivery error."""
+    if not _token():
+        return {"error": "no token"}
+    try:
+        r = requests.get(f"https://api.telegram.org/bot{_token()}/getWebhookInfo", timeout=15)
+        return (r.json() or {}).get("result", {})
+    except requests.RequestException as e:
+        return {"error": str(e)}
+
+
 class Telegram(Channel):
     id = "telegram"
     label = "Telegram"
