@@ -122,6 +122,14 @@ async def lifespan(app: FastAPI):
         simulator.start()  # sandbox traffic; paused in Live mode
     STATE["store"].start()  # cart-recovery sweeper (always on — it's the product)
     STATE["wati_poller"] = asyncio.create_task(whatsapp_admin.poll_loop(STATE))  # admin-bot inbound fallback
+    # Self-register the Telegram webhook so the admin bot works with zero manual setup.
+    try:
+        from channels import telegram as _tg
+        if _tg._token():
+            ok, info = _tg.set_webhook(tracking.PUBLIC_BASE + "/api/webhooks/telegram")
+            print(f"[telegram] webhook -> {tracking.PUBLIC_BASE}/api/webhooks/telegram : ok={ok} {info}")
+    except Exception as e:  # noqa: BLE001
+        print("[telegram] webhook setup failed:", e)
     yield
     simulator.pause()
     STATE["store"].stop()
@@ -546,10 +554,13 @@ async def webhook_telegram(request: Request):
     chat_id = str((msg.get("chat") or {}).get("id", ""))
     text = (msg.get("text") or "").strip()
     if chat_id and text:
-        reply = _handle_inbound("telegram", chat_id, text)
         ch = channels.get_channel("telegram")
-        if ch:
-            ch.send(chat_id, reply, meta={"inbound_reply": True})
+        if whatsapp_admin.is_admin_telegram(chat_id):
+            reply = await asyncio.to_thread(whatsapp_admin.handle, STATE, chat_id, text)
+            if ch:
+                ch.send(chat_id, reply, meta={"inbound_reply": True, "markdown": True})
+        elif ch:
+            ch.send(chat_id, f"⛔ This Foresight admin assistant is restricted. Your Telegram ID is {chat_id} — ask an admin to allow-list it.")
     return {"ok": True}
 
 

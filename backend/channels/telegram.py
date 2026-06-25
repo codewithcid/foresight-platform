@@ -20,6 +20,19 @@ def _token() -> str:
     return appconfig.get("TELEGRAM_BOT_TOKEN", "") or ""
 
 
+def set_webhook(url: str) -> tuple[bool, str]:
+    """Point the bot's inbound updates at our webhook (best-effort, on startup)."""
+    if not _token():
+        return False, "no token"
+    try:
+        r = requests.post(f"https://api.telegram.org/bot{_token()}/setWebhook",
+                          json={"url": url, "allowed_updates": ["message"]}, timeout=15)
+        d = r.json()
+        return bool(d.get("ok")), str(d.get("description", ""))
+    except requests.RequestException as e:
+        return False, str(e)
+
+
 class Telegram(Channel):
     id = "telegram"
     label = "Telegram"
@@ -37,10 +50,16 @@ class Telegram(Channel):
             return DeliveryResult(ok=False, channel=self.id, to=chat_id, error="Telegram not configured (TELEGRAM_BOT_TOKEN).")
         if not chat_id:
             return DeliveryResult(ok=False, channel=self.id, to="", error="No chat_id — message the bot once, or set TELEGRAM_CHAT_ID.")
+        url = f"https://api.telegram.org/bot{_token()}/sendMessage"
+        payload = {"chat_id": chat_id, "text": body}
+        if (meta or {}).get("markdown"):
+            payload["parse_mode"] = "Markdown"
         try:
-            r = requests.post(f"https://api.telegram.org/bot{_token()}/sendMessage",
-                              json={"chat_id": chat_id, "text": body}, timeout=15)
+            r = requests.post(url, json=payload, timeout=15)
             data = r.json()
+            # Unbalanced markdown -> Telegram 400s; retry as plain text so it still lands.
+            if not data.get("ok") and payload.get("parse_mode"):
+                data = requests.post(url, json={"chat_id": chat_id, "text": body}, timeout=15).json()
             if data.get("ok"):
                 return DeliveryResult(ok=True, channel=self.id, to=chat_id,
                                       provider_id=str(data.get("result", {}).get("message_id", "")))

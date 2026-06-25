@@ -75,6 +75,14 @@ def is_admin(wa_id: str) -> bool:
     return bool(allow) and wati.normalize(wa_id) in allow
 
 
+def is_admin_telegram(chat_id: str) -> bool:
+    """Telegram admins by chat id. Open if ADMIN_TELEGRAM_IDS is unset (demo);
+    lock it down by listing the allowed chat ids."""
+    raw = appconfig.get("ADMIN_TELEGRAM_IDS", "") or ""
+    allow = {a.strip() for a in raw.split(",") if a.strip()}
+    return (not allow) or (str(chat_id) in allow)
+
+
 def _capabilities_note() -> str:
     templates = ", ".join(t["id"] for t in workflow_mod.TEMPLATES)
     return ("\nValid run_workflow values — prefer a template id. Templates: " + templates +
