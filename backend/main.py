@@ -42,6 +42,7 @@ import images
 import llm
 import nlp
 import occasions as O
+import journey as journey_mod
 import seed
 import store as store_mod
 import supervisor
@@ -110,6 +111,7 @@ async def lifespan(app: FastAPI):
     STATE["creative_ledger"] = creative_proof.CreativeLedger()
     STATE["workflow"] = workflow_mod.WorkflowEngine(STATE)
     STATE["store"] = store_mod.StoreEngine(STATE, broadcast)
+    STATE["journey"] = journey_mod.JourneyEngine(STATE, broadcast)
     seeded = seed.seed_if_empty()  # populate Proof/Command on a fresh DB
 
     STATE["tools"] = build_tools(STATE)
@@ -121,6 +123,7 @@ async def lifespan(app: FastAPI):
     if appconfig.get("MODE", "sandbox") != "live":
         simulator.start()  # sandbox traffic; paused in Live mode
     STATE["store"].start()  # cart-recovery sweeper (always on — it's the product)
+    STATE["journey"].start_sweeper()  # cross-channel journey orchestration
     STATE["wati_poller"] = asyncio.create_task(whatsapp_admin.poll_loop(STATE))  # admin-bot inbound fallback
     # Self-register the Telegram webhook so the admin bot works with zero manual setup.
     try:
@@ -136,6 +139,7 @@ async def lifespan(app: FastAPI):
     yield
     simulator.pause()
     STATE["store"].stop()
+    STATE["journey"].stop()
     if STATE.get("wati_poller"):
         STATE["wati_poller"].cancel()
     STATE.clear()
@@ -855,6 +859,51 @@ async def store_nudge(req: NudgeRequest):
 @app.post("/api/store/reset")
 def store_reset():
     return STATE["store"].reset()
+
+
+# ------------------------------------------------- cross-channel journeys + 360
+@app.get("/api/journeys")
+def journeys_state():
+    return STATE["journey"].state()
+
+
+class JourneyStart(BaseModel):
+    template: str
+    name: str = ""
+    phone: str = ""
+    email: str = ""
+
+
+@app.post("/api/journeys/start")
+async def journeys_start(req: JourneyStart):
+    if not (req.phone.strip() or req.email.strip()):
+        raise HTTPException(400, "A phone or email is required")
+    return await STATE["journey"].start(req.template, req.phone, req.email, req.name)
+
+
+@app.post("/api/journeys/{jid}/respond")
+async def journeys_respond(jid: int):
+    return await STATE["journey"].respond(jid)
+
+
+@app.get("/api/customer360")
+def customer360(contact: str):
+    contact = (contact or "").strip()
+    if not contact:
+        return {"contact": "", "events": [], "journeys": [], "counts": {"messages": 0, "engagements": 0}}
+    logs = db.channel_logs_for(contact)
+    eng = db.engagement_for(contact)
+    events = []
+    for l in logs:
+        events.append({"ts": l.get("ts"), "type": l.get("direction") or "out", "channel": l.get("channel"),
+                       "text": (l.get("body") or "")[:200], "status": l.get("status")})
+    for e in eng:
+        label = f"{e.get('kind')}" + (f" · {e.get('detail')}" if e.get("detail") else "")
+        events.append({"ts": e.get("ts"), "type": "engagement", "channel": e.get("channel"), "text": label})
+    events.sort(key=lambda x: x.get("ts") or 0, reverse=True)
+    js = [j for j in db.journeys_list(60) if contact in (j.get("phone"), j.get("email"))]
+    return {"contact": contact, "events": events[:80], "journeys": js,
+            "counts": {"messages": len(logs), "engagements": len(eng)}}
 
 
 # ------------------------------------------------- admin WhatsApp bot (Wati)

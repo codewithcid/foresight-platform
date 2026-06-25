@@ -27,11 +27,13 @@ const STAGES: Stage[] = [
     role: "Pre-tests which message lifts ROI most." },
   { step: 4, phase: "Activate", title: "Workflows + Channels", tab: "workflows", icon: "ri-flow-chart",
     role: "Delivers the ROI-maximizing action, live." },
-  { step: 5, phase: "Activate", title: "Link-Up", tab: "store", icon: "ri-plug-line",
+  { step: 5, phase: "Activate", title: "Journeys", tab: "journeys", icon: "ri-route-line",
+    role: "Runs a cross-channel cadence that branches on response." },
+  { step: 6, phase: "Activate", title: "Link-Up", tab: "store", icon: "ri-plug-line",
     role: "Recovers abandoned carts on your live app." },
-  { step: 6, phase: "Prove", title: "Proof", tab: "proof", icon: "ri-checkbox-circle-line",
+  { step: 7, phase: "Prove", title: "Proof", tab: "proof", icon: "ri-checkbox-circle-line",
     role: "Measures actual vs. predicted ROI." },
-  { step: 7, phase: "Learn", title: "Command", tab: "dashboard", icon: "ri-pulse-line",
+  { step: 8, phase: "Learn", title: "Command", tab: "dashboard", icon: "ri-pulse-line",
     role: "Recalibrates predictions from results." },
 ];
 
@@ -61,7 +63,7 @@ export default function RoiLoop() {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
         {STAGES.map((s) => (
           <button
             key={s.title}

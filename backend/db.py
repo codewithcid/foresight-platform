@@ -72,6 +72,11 @@ CREATE TABLE IF NOT EXISTS discount_codes (
     code TEXT PRIMARY KEY, cart_id TEXT, percent INTEGER, run_id INTEGER, proof_id INTEGER,
     issued_ts REAL, expires_ts REAL, redeemed_ts REAL, redeemed_value REAL
 );
+CREATE TABLE IF NOT EXISTS journeys (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL, template TEXT, name TEXT,
+    phone TEXT, email TEXT, steps TEXT, step_idx INTEGER DEFAULT -1, status TEXT,
+    goal TEXT, last_step_ts REAL, next_due_ts REAL, touches TEXT
+);
 """
 
 
@@ -411,6 +416,73 @@ def discount_redeem(code: str, value: float) -> None:
 def discounts_issued_since(ts: float) -> list[dict]:
     with _LOCK:
         rows = conn().execute("SELECT * FROM discount_codes WHERE issued_ts >= ?", (ts,)).fetchall()
+    return [dict(r) for r in rows]
+
+
+# ----------------------------------------------------------------- journeys
+_JOURNEY_COLS = ["id", "ts", "template", "name", "phone", "email", "steps", "step_idx",
+                 "status", "goal", "last_step_ts", "next_due_ts", "touches"]
+
+
+def _journey_row(r: sqlite3.Row) -> dict:
+    d = dict(r)
+    d["steps"] = _loads(d.get("steps")) or []
+    d["touches"] = _loads(d.get("touches")) or []
+    return d
+
+
+def journey_create(template: str, name: str, phone: str, email: str, steps: list, goal: str) -> int:
+    with _LOCK:
+        c = conn()
+        cur = c.execute(
+            "INSERT INTO journeys (ts, template, name, phone, email, steps, step_idx, status, goal, touches) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (time.time(), template, name, phone, email, _dumps(steps), -1, "active", goal, _dumps([])))
+        c.commit()
+        return cur.lastrowid
+
+
+def journey_get(jid: int) -> dict | None:
+    with _LOCK:
+        r = conn().execute("SELECT * FROM journeys WHERE id = ?", (jid,)).fetchone()
+    return _journey_row(r) if r else None
+
+
+def journey_update(jid: int, **fields) -> None:
+    if "steps" in fields:
+        fields["steps"] = _dumps(fields["steps"])
+    if "touches" in fields:
+        fields["touches"] = _dumps(fields["touches"])
+    with _LOCK:
+        c = conn()
+        sets = ", ".join(f"{k} = ?" for k in fields)
+        c.execute(f"UPDATE journeys SET {sets} WHERE id = ?", (*fields.values(), jid))
+        c.commit()
+
+
+def journeys_list(limit: int = 60) -> list[dict]:
+    with _LOCK:
+        rows = conn().execute("SELECT * FROM journeys ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+    return [_journey_row(r) for r in rows]
+
+
+def journeys_active() -> list[dict]:
+    with _LOCK:
+        rows = conn().execute("SELECT * FROM journeys WHERE status = 'active'").fetchall()
+    return [_journey_row(r) for r in rows]
+
+
+def engagement_for(to_addr: str, since_ts: float = 0.0) -> list[dict]:
+    with _LOCK:
+        rows = conn().execute(
+            "SELECT * FROM engagement WHERE to_addr = ? AND ts >= ? ORDER BY id DESC", (to_addr, since_ts)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def channel_logs_for(to_addr: str, limit: int = 100) -> list[dict]:
+    with _LOCK:
+        rows = conn().execute(
+            "SELECT * FROM channel_logs WHERE to_addr = ? ORDER BY id DESC LIMIT ?", (to_addr, limit)).fetchall()
     return [dict(r) for r in rows]
 
 

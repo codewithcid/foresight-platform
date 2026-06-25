@@ -375,6 +375,35 @@ export async function resetStore(): Promise<StoreState> {
   return fetch(`${BASE}/api/store/reset`, { method: "POST" }).then((r) => r.json());
 }
 
+// ---- Cross-channel journeys + Customer 360 ----
+export type Journey = {
+  id: number; template: string; name: string; phone: string; email: string;
+  steps: { channel: string; copy: string }[]; step_idx: number; status: string;
+  goal: string; touches: { channel: string; ts: number; delivered: boolean; copy: string }[]; ts: number;
+};
+export type JourneyTemplate = { id: string; name: string; channels: string[] };
+export type JourneyState = {
+  templates: JourneyTemplate[]; journeys: Journey[]; wait_sec: number;
+  metrics: { active: number; converted: number; exhausted: number };
+};
+export type C360Event = { ts: number; type: string; channel: string; text: string; status?: string };
+export type Customer360 = { contact: string; events: C360Event[]; journeys: Journey[]; counts: { messages: number; engagements: number } };
+
+export async function getJourneys(): Promise<JourneyState> {
+  return fetch(`${BASE}/api/journeys`).then((r) => r.json());
+}
+export async function startJourney(body: { template: string; name?: string; phone?: string; email?: string }): Promise<Journey> {
+  return fetch(`${BASE}/api/journeys/start`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  }).then((r) => r.json());
+}
+export async function respondJourney(id: number): Promise<Journey> {
+  return fetch(`${BASE}/api/journeys/${id}/respond`, { method: "POST" }).then((r) => r.json());
+}
+export async function getCustomer360(contact: string): Promise<Customer360> {
+  return fetch(`${BASE}/api/customer360?contact=${encodeURIComponent(contact)}`).then((r) => r.json());
+}
+
 export function connectFeed(onMessage: (payload: any) => void): WebSocket {
   const proto = window.location.protocol === "https:" ? "wss" : "ws";
   const ws = new WebSocket(`${proto}://${window.location.host}/ws/feed`);
