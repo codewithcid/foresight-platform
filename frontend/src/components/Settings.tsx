@@ -39,7 +39,7 @@ function AdminBotCard({ bot, onSaved }: { bot: AdminBot; onSaved: () => void }) 
             placeholder={bot.wati_token_set ? bot.wati_token_masked : "paste your Wati token"} className="form-input w-full mt-1 text-sm font-mono" />
         </label>
         <label className="text-[11px] text-muted-foreground">Admin WhatsApp numbers <span className="text-muted-foreground/60">— comma-separated, E.164</span>
-          <input value={admins} onChange={(e) => setAdmins(e.target.value)} placeholder="+9162…, +9198…" className="form-input w-full mt-1 text-sm" />
+          <input value={admins} onChange={(e) => setAdmins(e.target.value)} placeholder="+91XXXXXXXXXX, +91XXXXXXXXXX" className="form-input w-full mt-1 text-sm" />
         </label>
         <div>
           <div className="text-[11px] text-muted-foreground mb-1">Webhook URL — paste this in Wati → Webhooks (event: message received)</div>

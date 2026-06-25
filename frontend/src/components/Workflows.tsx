@@ -215,7 +215,7 @@ export default function Workflows() {
               </select>
             </label>
             <label className="text-xs text-muted-foreground">Test recipient (optional)
-              <input value={form.test_recipient} disabled={auto} onChange={(e) => setForm({ ...form, test_recipient: e.target.value })} placeholder="+91…" className="form-input w-full mt-1 text-sm" />
+              <input value={form.test_recipient} disabled={auto} onChange={(e) => setForm({ ...form, test_recipient: e.target.value })} placeholder="+91XXXXXXXXXX" className="form-input w-full mt-1 text-sm" />
             </label>
           </div>
 

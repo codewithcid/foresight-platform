@@ -10,8 +10,8 @@ const TEAM = [
   },
   {
     photo: "/team/rochit.png",
-    initials: "R",
-    name: "Rochit",
+    initials: "RL",
+    name: "Rochit L",
     role: "Co-builder · Backend & Systems",
     sub: "Foresight · finals build",
   },

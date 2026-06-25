@@ -101,7 +101,7 @@ export default function Journeys() {
               <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Asha" className="form-input w-full mt-1 text-sm" />
             </label>
             <label className="text-[11px] text-muted-foreground">Phone
-              <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+9162…" className="form-input w-full mt-1 text-sm" />
+              <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+91XXXXXXXXXX" className="form-input w-full mt-1 text-sm" />
             </label>
             <label className="text-[11px] text-muted-foreground">Email (for email steps)
               <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="asha@…" className="form-input w-full mt-1 text-sm" />
@@ -159,7 +159,7 @@ export default function Journeys() {
         <CardContent>
           <div className="flex gap-2">
             <input value={lookup} onChange={(e) => setLookup(e.target.value)} onKeyDown={(e) => e.key === "Enter" && look()}
-              placeholder="phone or email (e.g. +9162…)" className="form-input flex-1 text-sm" />
+              placeholder="phone or email (e.g. +91XXXXXXXXXX)" className="form-input flex-1 text-sm" />
             <button onClick={look} className="px-4 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90">Look up</button>
           </div>
           {c360 && (

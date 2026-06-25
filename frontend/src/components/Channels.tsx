@@ -18,11 +18,11 @@ function ModeBadge({ c }: { c: ChannelStatus }) {
 }
 
 const INPUT: Record<string, { ph: string; hint: string; optional?: boolean }> = {
-  sms: { ph: "+916282490564", hint: "Full international format, incl. country code (+91…)." },
-  whatsapp: { ph: "+916282490564", hint: "Recipient must first text “join clothing-here” to +14155238886." },
+  sms: { ph: "+91XXXXXXXXXX", hint: "Full international format, incl. country code (+91…)." },
+  whatsapp: { ph: "+91XXXXXXXXXX", hint: "Recipient must first text “join clothing-here” to +14155238886." },
   email: { ph: "you@example.com", hint: "Sandbox: only your Resend account email until a domain is verified." },
   slack: { ph: "(posts to your Slack channel)", hint: "Sends to the configured Slack channel — no address needed.", optional: true },
-  telegram: { ph: "chat id, e.g. 5575321420", hint: "Numeric chat id (message the bot first). Blank = default chat.", optional: true },
+  telegram: { ph: "numeric chat id", hint: "Numeric chat id (message the bot first). Blank = default chat.", optional: true },
 };
 
 function ChannelCard({ c, onSent }: { c: ChannelStatus; onSent: () => void }) {

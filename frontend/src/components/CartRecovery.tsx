@@ -200,7 +200,7 @@ export default function CartRecovery() {
                 <input value={nf.name} onChange={(e) => setNf({ ...nf, name: e.target.value })} placeholder="Asha" className="form-input w-full mt-1 text-sm" />
               </label>
               <label className="text-[11px] text-muted-foreground">WhatsApp number
-                <input value={nf.phone} onChange={(e) => setNf({ ...nf, phone: e.target.value })} placeholder="+9162…" className="form-input w-full mt-1 text-sm" />
+                <input value={nf.phone} onChange={(e) => setNf({ ...nf, phone: e.target.value })} placeholder="+91XXXXXXXXXX" className="form-input w-full mt-1 text-sm" />
               </label>
               <label className="text-[11px] text-muted-foreground">Cart value (₹)
                 <input value={nf.value} onChange={(e) => setNf({ ...nf, value: e.target.value })} type="number" placeholder="1499" className="form-input w-full mt-1 text-sm" />
